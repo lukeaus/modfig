@@ -18,7 +18,7 @@ python3 -m modfig --help
 
 ```sh
 pytest -q
-mypy src/modfig
+mypy --platform darwin src/modfig
 ruff format --check src tests
 ruff check src tests
 ```
