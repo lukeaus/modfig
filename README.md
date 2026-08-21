@@ -10,7 +10,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
 [![mypy: strict](https://img.shields.io/badge/mypy-strict-blue.svg)](https://mypy-lang.org/)
 
-Declarative AI Model Configuration for Clients
+Declarative AI model configuration for clients
 
 ## Overview
 
@@ -25,6 +25,10 @@ registry.yaml -> ModFig -> Factory | VS Code | Codex
 The registry stores environment-variable references, never resolved API keys.
 Client updates use ownership-aware reconciliation and a recoverable host
 transaction.
+
+## Why
+
+Updating and maintaing AI model configurations across multiple clients is a pain. For instance, a new model comes out, and you use 3 different AI clients. You need to add the new model and relevant parameters to each one, and update your defaults. This can take several minutes. Not anymore. Update one file and run one command. Done.
 
 ## Supported targets
 
@@ -65,6 +69,13 @@ Preview or apply one target:
 ```sh
 modfig diff --target factory
 modfig apply --target factory --yes
+```
+
+Preview or apply all configured targets in one transaction:
+
+```sh
+modfig diff --target all
+modfig apply --target all --yes
 ```
 
 Use `--target vscode` or `--target chatgpt` for the other built-in adapters.
