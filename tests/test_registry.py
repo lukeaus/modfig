@@ -501,11 +501,7 @@ def test_vscode_reasoning_levels_reject_invalid_values(extension: str) -> None:
             _probe_registry(
                 targets="[vscode]",
                 enabled="true",
-                model_ext=(
-                    "        extensions:\n"
-                    "          vscode:\n"
-                    f"            {extension}\n"
-                ),
+                model_ext=(f"        extensions:\n          vscode:\n            {extension}\n"),
             )
         )
 
