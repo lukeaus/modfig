@@ -1,4 +1,4 @@
-# Codex and multiple provider profiles
+# Codex / ChatGPT
 
 ModFig calls the registry target `chatgpt` because the adapter targets the
 shared Codex configuration used by the Codex CLI, TUI, and GUI.

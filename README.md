@@ -10,6 +10,8 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
 [![mypy: strict](https://img.shields.io/badge/mypy-strict-blue.svg)](https://mypy-lang.org/)
 
+Declarative AI Model Configuration for Clients
+
 ## Overview
 
 ModFig keeps LLM providers, models, endpoints, capabilities, and target
@@ -106,7 +108,7 @@ providers:
 
 ## Target guides
 
-- [Codex and multiple provider profiles](docs/targets/codex.md)
+- [Codex/ChatGPT](docs/targets/codex.md)
 - [Factory Droids](docs/targets/factory.md)
 - [Visual Studio Code](docs/targets/vscode.md)
 
