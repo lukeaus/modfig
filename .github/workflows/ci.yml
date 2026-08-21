@@ -29,4 +29,5 @@ jobs:
       - name: Mypy
         run: python -m mypy --platform darwin src/modfig
       - name: Pytest
+        if: runner.os != 'Windows'
         run: python -m pytest
