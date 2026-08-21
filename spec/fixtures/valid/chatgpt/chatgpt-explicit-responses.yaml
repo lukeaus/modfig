@@ -1,0 +1,23 @@
+# An absent provider protocol may declare Responses explicitly.
+specVersion: "0.1"
+providers:
+  router:
+    name: Router
+    targets: [chatgpt]
+    baseUrl: https://router.example/v1
+    apiKey: env.ROUTER_KEY
+    enabled: true
+    extensions:
+      chatgpt:
+        providerId: modfig-router.v1
+        wireApi: responses
+        default: true
+    models:
+      "vendor/model":
+        displayName: Vendor Model
+        contextWindow: 131072
+        maxOutputTokens: 32768
+        enabled: true
+        extensions:
+          chatgpt:
+            catalogId: vendor/model-v1

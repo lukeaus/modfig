@@ -1,0 +1,16 @@
+# Dynamic logical clients (codex) are accepted as target IDs; only built-in
+# clients receive a built-in adapter route.
+specVersion: "0.1"
+providers:
+  umans-ai:
+    name: Umans AI
+    targets: [codex]
+    baseUrl: https://api.code.umans.ai/v1
+    apiKey: env.UMANS_API_KEY
+    enabled: true
+    models:
+      umans-glm-5.2:
+        displayName: GLM 5.2 [Umans AI]
+        contextWindow: 1048576
+        maxOutputTokens: 131071
+        enabled: true

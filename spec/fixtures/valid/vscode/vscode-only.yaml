@@ -1,0 +1,16 @@
+# AC-13.1: VS-Code-only valid registry.
+specVersion: "0.1"
+providers:
+  openrouter:
+    name: OpenRouter
+    targets: [vscode]
+    baseUrl: https://openrouter.ai/api/v1
+    apiKey: env.OPENROUTER_API_KEY
+    provider: generic-chat-completion-api
+    enabled: true
+    models:
+      "deepseek/deepseek-v4-pro":
+        displayName: DeepSeek V4 Pro [OpenRouter]
+        contextWindow: 131072
+        maxOutputTokens: 32768
+        enabled: true

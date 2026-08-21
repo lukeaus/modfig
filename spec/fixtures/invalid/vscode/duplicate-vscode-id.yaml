@@ -1,0 +1,23 @@
+specVersion: "0.1"
+providers:
+  duplicate-vscode:
+    name: Duplicate VS Code
+    targets: [vscode]
+    baseUrl: https://example.com/v1
+    apiKey: env.API_KEY
+    enabled: true
+    models:
+      first:
+        displayName: First
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+        extensions:
+          vscode: {id: shared}
+      second:
+        displayName: Second
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+        extensions:
+          vscode: {id: shared}

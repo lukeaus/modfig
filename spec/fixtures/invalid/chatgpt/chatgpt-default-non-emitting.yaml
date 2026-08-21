@@ -1,0 +1,34 @@
+specVersion: "0.1"
+providers:
+  factory-only:
+    name: Factory Only
+    targets: [factory]
+    baseUrl: https://factory.example/v1
+    apiKey: env.FACTORY_KEY
+    provider: openai
+    enabled: true
+    extensions:
+      chatgpt:
+        default: true
+    models:
+      factory-model:
+        displayName: Factory Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+  surplus:
+    name: Surplus
+    targets: [chatgpt]
+    baseUrl: https://surplus.example/v1
+    apiKey: env.SURPLUS_KEY
+    provider: openai
+    enabled: true
+    extensions:
+      chatgpt:
+        default: true
+    models:
+      surplus-model:
+        displayName: Surplus Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true

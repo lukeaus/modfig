@@ -1,0 +1,18 @@
+specVersion: "0.1"
+providers:
+  trailing-provider:
+    name: Trailing Provider
+    targets: [factory]
+    baseUrl: https://example.com/v1
+    apiKey: env.API_KEY
+    enabled: false
+    extensions:
+      chatgpt:
+        providerId: |
+          modfig-trailing
+    models:
+      model:
+        displayName: Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: false

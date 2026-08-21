@@ -1,0 +1,19 @@
+specVersion: "0.1"
+providers:
+  surplus:
+    name: Surplus Intelligence
+    targets: [factory, chatgpt]
+    baseUrl: https://api.surplusintelligence.ai/v1
+    apiKey: env.SURPLUS_API_KEY
+    provider: generic-chat-completion-api
+    enabled: true
+    extensions:
+      chatgpt:
+        wireApi: responses
+        default: true
+    models:
+      gpt-5.6-sol:
+        displayName: GPT-5.6 Sol
+        contextWindow: 1048576
+        maxOutputTokens: 128000
+        enabled: true

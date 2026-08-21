@@ -1,0 +1,22 @@
+{
+  "contractVersion": 1,
+  "target": "vscode",
+  "characterizationStatus": "unproven",
+  "clientVersion": "unproven",
+  "channel": "unproven",
+  "profileMode": "unproven",
+  "profileRoot": "unproven",
+  "stateDatabase": {
+    "members": ["state.vscdb", "state.vscdb-wal", "state.vscdb-shm"],
+    "backupHandling": "opaque-protected-snapshot-only"
+  },
+  "walMembers": "required-as-one-snapshot",
+  "itemTable": {
+    "access": "proof-recorded-rows-only",
+    "unknownRows": "preserve-without-inspection"
+  },
+  "secretRowIdentity": "unproven",
+  "safeStorage": "unproven",
+  "keyContext": "unproven",
+  "processDetector": "unproven"
+}

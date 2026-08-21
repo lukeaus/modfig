@@ -1,0 +1,15 @@
+specVersion: "0.1"
+providers:
+  generic:
+    name: Generic
+    targets: [chatgpt]
+    baseUrl: https://generic.example/v1
+    apiKey: env.API_KEY
+    provider: generic-chat-completion-api
+    enabled: true
+    models:
+      model:
+        displayName: Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true

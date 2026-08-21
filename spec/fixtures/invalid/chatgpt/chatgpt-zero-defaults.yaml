@@ -1,0 +1,15 @@
+specVersion: "0.1"
+providers:
+  surplus:
+    name: Surplus
+    targets: [chatgpt]
+    baseUrl: https://surplus.example/v1
+    apiKey: env.SURPLUS_KEY
+    provider: openai
+    enabled: true
+    models:
+      surplus-model:
+        displayName: Surplus Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true

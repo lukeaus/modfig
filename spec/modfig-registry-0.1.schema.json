@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modfig.dev/spec/modfig-registry-0.1.schema.json",
+  "title": "ModFig Registry Specification 0.1",
+  "description": "Normative structural contract for ModFig registry 0.1. Providers and models are insertion-ordered maps keyed by provider key and model name. The reference parser additionally enforces URL policy, cross-record identity uniqueness, computed Factory ID derivation, and Factory default role completeness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specVersion", "providers"],
+  "properties": {
+    "specVersion": { "type": "string", "const": "0.1" },
+    "providers": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?![\\s\\S])",
+        "description": "Provider key. The parser also rejects the substring '--'."
+      },
+      "additionalProperties": { "$ref": "#/$defs/provider" }
+    },
+    "clientConfig": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+      "properties": { "factory": { "$ref": "#/$defs/factoryClientConfig" } },
+      "additionalProperties": { "$ref": "#/$defs/clientConfig" }
+    }
+  },
+  "$defs": {
+    "clientConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "core": { "type": "object", "minProperties": 1 },
+        "extensions": {
+          "type": "object",
+          "propertyNames": { "pattern": "^(?!core$)[a-z][a-z0-9-]*$" },
+          "additionalProperties": { "type": "object", "minProperties": 1 }
+        }
+      }
+    },
+    "ohMyDroidExtension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["droids"],
+      "properties": {
+        "droids": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+          "additionalProperties": { "$ref": "#/$defs/modelReference" }
+        },
+        "prune": { "type": "boolean", "default": false }
+      }
+    },
+    "factoryClientConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "core": { "$ref": "#/$defs/factoryCore" },
+        "extensions": {
+          "type": "object",
+          "propertyNames": { "pattern": "^(?!core$)[a-z][a-z0-9-]*$" },
+          "properties": {
+            "oh-my-droid": { "$ref": "#/$defs/ohMyDroidExtension" }
+          },
+          "additionalProperties": { "type": "object", "minProperties": 1 }
+        }
+      }
+    },
+    "factoryCore": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "defaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["worker", "thinker", "orchestrator", "simple", "validator"],
+          "properties": {
+            "worker": { "$ref": "#/$defs/modelReference" },
+            "thinker": { "$ref": "#/$defs/modelReference" },
+            "orchestrator": { "$ref": "#/$defs/modelReference" },
+            "simple": { "$ref": "#/$defs/modelReference" },
+            "validator": { "$ref": "#/$defs/modelReference" }
+          }
+        },
+        "session": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "model": { "$ref": "#/$defs/factoryModelSelection" },
+            "reasoningEffort": { "$ref": "#/$defs/reasoningEffort" },
+            "specModeModel": { "$ref": "#/$defs/factoryModelSelection" },
+            "specModeReasoningEffort": { "$ref": "#/$defs/reasoningEffort" }
+          }
+        },
+        "mission": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "orchestratorModel": { "$ref": "#/$defs/factoryModelSelection" },
+            "orchestratorReasoningEffort": { "$ref": "#/$defs/reasoningEffort" },
+            "workerModel": { "$ref": "#/$defs/factoryModelSelection" },
+            "workerReasoningEffort": { "$ref": "#/$defs/reasoningEffort" },
+            "validationWorkerModel": { "$ref": "#/$defs/factoryModelSelection" },
+            "validationWorkerReasoningEffort": { "$ref": "#/$defs/reasoningEffort" }
+          }
+        }
+      }
+    },
+    "reasoningEffort": {
+      "enum": ["off", "none", "low", "medium", "high", "max"]
+    },
+    "modelReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" },
+        "model": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" }
+      }
+    },
+    "factoryModelSelection": {
+      "oneOf": [
+        { "$ref": "#/$defs/modelReference" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["factoryNative"],
+          "properties": {
+            "factoryNative": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" }
+          }
+        }
+      ]
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "targets", "baseUrl", "apiKey", "enabled", "models"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "description": "Logical client IDs are strict lower-case names."
+        },
+        "baseUrl": { "type": "string", "minLength": 1, "format": "uri" },
+        "apiKey": {
+          "type": "string",
+          "pattern": "^env\\.[A-Za-z_][A-Za-z0-9_]*(?![\\s\\S])"
+        },
+        "provider": {
+          "type": ["string", "null"],
+          "enum": ["openai", "anthropic", "generic-chat-completion-api", null]
+        },
+        "enabled": { "type": "boolean" },
+        "models": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": { "$ref": "#/$defs/model" }
+        },
+        "extensions": {
+          "anyOf": [
+            { "$ref": "#/$defs/providerExtensions" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "providerExtensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "chatgpt": { "$ref": "#/$defs/chatgptProviderExtension" }
+      }
+    },
+    "chatgptProviderExtension": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "providerId": {
+          "type": "string",
+          "pattern": "^modfig-[A-Za-z0-9][A-Za-z0-9._-]*(?![\\s\\S])"
+        },
+        "wireApi": { "const": "responses" },
+        "default": { "type": "boolean" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["displayName", "contextWindow", "maxOutputTokens", "enabled"],
+      "properties": {
+        "displayName": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" },
+        "contextWindow": { "type": "integer", "exclusiveMinimum": 0 },
+        "maxOutputTokens": { "type": "integer", "exclusiveMinimum": 0 },
+        "maxInputTokens": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "provider": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "noImageSupport": { "type": ["boolean", "null"] },
+        "toolCalling": { "type": ["boolean", "null"] },
+        "favourite": { "type": ["boolean", "null"] },
+        "enabled": { "type": "boolean" },
+        "extensions": {
+          "anyOf": [
+            { "$ref": "#/$defs/modelExtensions" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "modelExtensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vscode": { "$ref": "#/$defs/vscodeExtension" },
+        "chatgpt": { "$ref": "#/$defs/chatgptModelExtension" }
+      }
+    },
+    "vscodeExtension": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "reasoningLevels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["low", "medium", "high", "xhigh", "max"]
+          }
+        },
+        "defaultReasoningLevel": {
+          "enum": ["low", "medium", "high", "xhigh", "max"]
+        }
+      }
+    },
+    "chatgptModelExtension": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "catalogId": {
+          "type": "string",
+          "pattern": "^[^\\s\\u0000-\\u001F\\u007F]+(?![\\s\\S])"
+        },
+        "reasoningLevels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["low", "medium", "high", "xhigh", "max", "ultra"]
+          }
+        }
+      }
+    }
+  }
+}

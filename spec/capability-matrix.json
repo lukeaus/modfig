@@ -1,0 +1,246 @@
+{
+  "matrixVersion": 1,
+  "proofSchema": "proof-record.schema.json",
+  "rows": [
+    {
+      "id": "vscode-macos-custom-endpoint-stable-default-unproven",
+      "logicalClient": "vscode",
+      "component": {
+        "kind": "core"
+      },
+      "adapterId": "modfig.vscode",
+      "featureKey": "features.core.models",
+      "os": "macos",
+      "osBuild": "unproven",
+      "surface": "custom-endpoint",
+      "channel": "stable",
+      "profileMode": "default",
+      "clientVersion": "unproven",
+      "supportStatus": "unsupported",
+      "unsupportedKind": "unproven-contract",
+      "unsupportedReason": "VS Code safeStorage, profile, runtime, restart, and recovery proof have not been recorded.",
+      "freshnessDays": null,
+      "paths": [],
+      "credentialMechanism": "unproven",
+      "processDetector": "unproven",
+      "contractFixture": {
+        "path": "spec/fixtures/proof/vscode/vscode-safestorage.contract.json",
+        "sha256": "sha256:31dbe29511b73c79316eb9dcfd564f53d2d41bdbeb08982295508ad6402b8f6d"
+      },
+      "requiredEvidence": []
+    },
+    {
+      "id": "vscode-linux-custom-endpoint-stable-default-unproven",
+      "logicalClient": "vscode",
+      "component": {
+        "kind": "core"
+      },
+      "adapterId": "modfig.vscode",
+      "featureKey": "features.core.models",
+      "os": "linux",
+      "osBuild": "unproven",
+      "surface": "custom-endpoint",
+      "channel": "stable",
+      "profileMode": "default",
+      "clientVersion": "unproven",
+      "supportStatus": "unsupported",
+      "unsupportedKind": "unproven-contract",
+      "unsupportedReason": "VS Code safeStorage, profile, runtime, restart, and recovery proof have not been recorded.",
+      "freshnessDays": null,
+      "paths": [],
+      "credentialMechanism": "unproven",
+      "processDetector": "unproven",
+      "contractFixture": {
+        "path": "spec/fixtures/proof/vscode/vscode-safestorage.contract.json",
+        "sha256": "sha256:31dbe29511b73c79316eb9dcfd564f53d2d41bdbeb08982295508ad6402b8f6d"
+      },
+      "requiredEvidence": []
+    },
+    {
+      "id": "vscode-windows-custom-endpoint-stable-default-unproven",
+      "logicalClient": "vscode",
+      "component": {
+        "kind": "core"
+      },
+      "adapterId": "modfig.vscode",
+      "featureKey": "features.core.models",
+      "os": "windows",
+      "osBuild": "unproven",
+      "surface": "custom-endpoint",
+      "channel": "stable",
+      "profileMode": "default",
+      "clientVersion": "unproven",
+      "supportStatus": "unsupported",
+      "unsupportedKind": "unproven-contract",
+      "unsupportedReason": "VS Code safeStorage, profile, runtime, restart, and recovery proof have not been recorded.",
+      "freshnessDays": null,
+      "paths": [],
+      "credentialMechanism": "unproven",
+      "processDetector": "unproven",
+      "contractFixture": {
+        "path": "spec/fixtures/proof/vscode/vscode-safestorage.contract.json",
+        "sha256": "sha256:31dbe29511b73c79316eb9dcfd564f53d2d41bdbeb08982295508ad6402b8f6d"
+      },
+      "requiredEvidence": []
+    },
+    {
+      "id": "chatgpt-macos-cli-tui-stable-provider-profiles-unproven",
+      "logicalClient": "chatgpt",
+      "component": {
+        "kind": "core"
+      },
+      "adapterId": "modfig.chatgpt",
+      "featureKey": "features.core.catalog",
+      "os": "macos",
+      "osBuild": "unproven",
+      "surface": "cli-tui",
+      "channel": "stable",
+      "profileMode": "provider-profiles",
+      "clientVersion": "unproven",
+      "supportStatus": "unsupported",
+      "unsupportedKind": "unproven-contract",
+      "unsupportedReason": "Codex CLI/TUI provider profiles, provider-scoped catalogs, default GUI projection, runtime, restart, and recovery proof have not been recorded.",
+      "freshnessDays": null,
+      "paths": [],
+      "credentialMechanism": "environment-variable-reference",
+      "processDetector": "unproven",
+      "contractFixture": {
+        "path": "spec/fixtures/proof/chatgpt/chatgpt-shared-config.contract.json",
+        "sha256": "sha256:d607e162ff8a7f5dbdfd684e75d3a883650f5a109fee7a76adfc03caba1acfe3"
+      },
+      "requiredEvidence": []
+    },
+    {
+      "id": "chatgpt-linux-cli-tui-stable-provider-profiles-unproven",
+      "logicalClient": "chatgpt",
+      "component": {
+        "kind": "core"
+      },
+      "adapterId": "modfig.chatgpt",
+      "featureKey": "features.core.catalog",
+      "os": "linux",
+      "osBuild": "unproven",
+      "surface": "cli-tui",
+      "channel": "stable",
+      "profileMode": "provider-profiles",
+      "clientVersion": "unproven",
+      "supportStatus": "unsupported",
+      "unsupportedKind": "unproven-contract",
+      "unsupportedReason": "Codex CLI/TUI provider profiles, provider-scoped catalogs, default GUI projection, runtime, restart, and recovery proof have not been recorded.",
+      "freshnessDays": null,
+      "paths": [],
+      "credentialMechanism": "environment-variable-reference",
+      "processDetector": "unproven",
+      "contractFixture": {
+        "path": "spec/fixtures/proof/chatgpt/chatgpt-shared-config.contract.json",
+        "sha256": "sha256:d607e162ff8a7f5dbdfd684e75d3a883650f5a109fee7a76adfc03caba1acfe3"
+      },
+      "requiredEvidence": []
+    },
+    {
+      "id": "chatgpt-windows-cli-tui-stable-provider-profiles-unproven",
+      "logicalClient": "chatgpt",
+      "component": {
+        "kind": "core"
+      },
+      "adapterId": "modfig.chatgpt",
+      "featureKey": "features.core.catalog",
+      "os": "windows",
+      "osBuild": "unproven",
+      "surface": "cli-tui",
+      "channel": "stable",
+      "profileMode": "provider-profiles",
+      "clientVersion": "unproven",
+      "supportStatus": "unsupported",
+      "unsupportedKind": "unproven-contract",
+      "unsupportedReason": "Codex CLI/TUI provider profiles, provider-scoped catalogs, default GUI projection, runtime, restart, and recovery proof have not been recorded.",
+      "freshnessDays": null,
+      "paths": [],
+      "credentialMechanism": "environment-variable-reference",
+      "processDetector": "unproven",
+      "contractFixture": {
+        "path": "spec/fixtures/proof/chatgpt/chatgpt-shared-config.contract.json",
+        "sha256": "sha256:d607e162ff8a7f5dbdfd684e75d3a883650f5a109fee7a76adfc03caba1acfe3"
+      },
+      "requiredEvidence": []
+    },
+    {
+      "id": "chatgpt-macos-desktop-stable-home-only-unproven",
+      "logicalClient": "chatgpt",
+      "component": {
+        "kind": "core"
+      },
+      "adapterId": "modfig.chatgpt",
+      "featureKey": "features.core.catalog",
+      "os": "macos",
+      "osBuild": "unproven",
+      "surface": "desktop",
+      "channel": "stable",
+      "profileMode": "home-only",
+      "clientVersion": "unproven",
+      "supportStatus": "unsupported",
+      "unsupportedKind": "unproven-contract",
+      "unsupportedReason": "The macOS desktop app inherited CODEX_HOME in an isolated test, but did not select a provider-scoped ModFig profile; desktop catalog visibility, restart, and recovery proof remain unavailable.",
+      "freshnessDays": null,
+      "paths": [],
+      "credentialMechanism": "environment-variable-reference",
+      "processDetector": "unproven",
+      "contractFixture": {
+        "path": "spec/fixtures/proof/chatgpt/chatgpt-desktop-home-only.contract.json",
+        "sha256": "sha256:d7557ed380cd1175f97fbe705e52d1c980f0087537fa266a204bce3426a10fd7"
+      },
+      "requiredEvidence": []
+    },
+    {
+      "id": "chatgpt-linux-desktop-stable-shared-user-not-applicable",
+      "logicalClient": "chatgpt",
+      "component": {
+        "kind": "core"
+      },
+      "adapterId": "modfig.chatgpt",
+      "featureKey": "features.core.catalog",
+      "os": "linux",
+      "osBuild": "not-applicable",
+      "surface": "desktop",
+      "channel": "stable",
+      "profileMode": "shared-user",
+      "clientVersion": "not-applicable",
+      "supportStatus": "unsupported",
+      "unsupportedKind": "not-applicable",
+      "unsupportedReason": "ChatGPT has no Linux desktop surface.",
+      "freshnessDays": null,
+      "paths": [],
+      "credentialMechanism": "not-applicable",
+      "processDetector": "not-applicable",
+      "contractFixture": null,
+      "requiredEvidence": []
+    },
+    {
+      "id": "chatgpt-windows-desktop-stable-shared-user-unproven",
+      "logicalClient": "chatgpt",
+      "component": {
+        "kind": "core"
+      },
+      "adapterId": "modfig.chatgpt",
+      "featureKey": "features.core.catalog",
+      "os": "windows",
+      "osBuild": "unproven",
+      "surface": "desktop",
+      "channel": "stable",
+      "profileMode": "shared-user",
+      "clientVersion": "unproven",
+      "supportStatus": "unsupported",
+      "unsupportedKind": "unproven-contract",
+      "unsupportedReason": "ChatGPT desktop shared-config, catalog visibility, runtime, restart, and recovery proof have not been recorded.",
+      "freshnessDays": null,
+      "paths": [],
+      "credentialMechanism": "environment-variable-reference",
+      "processDetector": "unproven",
+      "contractFixture": {
+        "path": "spec/fixtures/proof/chatgpt/chatgpt-shared-config.contract.json",
+        "sha256": "sha256:d607e162ff8a7f5dbdfd684e75d3a883650f5a109fee7a76adfc03caba1acfe3"
+      },
+      "requiredEvidence": []
+    }
+  ]
+}

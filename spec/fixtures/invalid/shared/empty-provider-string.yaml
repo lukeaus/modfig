@@ -1,0 +1,16 @@
+# AC-3.12: empty-string provider is invalid (null would mean absent).
+specVersion: "0.1"
+providers:
+  umans-ai:
+    name: Umans AI
+    targets: [factory]
+    baseUrl: https://api.code.umans.ai/v1
+    apiKey: env.UMANS_API_KEY
+    provider: ""
+    enabled: true
+    models:
+      umans-glm-5.2:
+        displayName: GLM 5.2 [Umans AI]
+        contextWindow: 1048576
+        maxOutputTokens: 131071
+        enabled: true

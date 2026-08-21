@@ -1,0 +1,16 @@
+specVersion: "0.1"
+providers:
+  unknown:
+    name: Unknown
+    targets: [factory]
+    baseUrl: https://example.com/v1
+    apiKey: env.API_KEY
+    enabled: false
+    extensions:
+      vendor: {}
+    models:
+      model:
+        displayName: Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: false

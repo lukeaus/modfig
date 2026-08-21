@@ -1,0 +1,19 @@
+# Provider-level openai implies ChatGPT Responses transport.
+specVersion: "0.1"
+providers:
+  openai:
+    name: OpenAI
+    targets: [chatgpt]
+    baseUrl: https://api.openai.com/v1
+    apiKey: env.OPENAI_API_KEY
+    provider: openai
+    enabled: true
+    extensions:
+      chatgpt:
+        default: true
+    models:
+      gpt-5.6-sol:
+        displayName: GPT 5.6 Sol
+        contextWindow: 400000
+        maxOutputTokens: 128000
+        enabled: true

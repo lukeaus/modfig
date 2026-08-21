@@ -1,0 +1,17 @@
+specVersion: "0.1"
+providers:
+  router:
+    name: Router
+    targets: [factory]
+    baseUrl: https://router.example/v1
+    apiKey: env.ROUTER_KEY
+    enabled: true
+    models:
+      primary:
+        displayName: Primary
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+clientConfig:
+  factory:
+    core: invalid

@@ -1,0 +1,15 @@
+specVersion: "0.1"
+providers:
+  mixed-case:
+    name: Mixed Case
+    targets: [ChatGPT]
+    baseUrl: https://example.com/v1
+    apiKey: env.API_KEY
+    provider: openai
+    enabled: true
+    models:
+      gpt-5:
+        displayName: GPT 5
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true

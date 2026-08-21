@@ -1,0 +1,17 @@
+specVersion: "0.1"
+providers:
+  null-field:
+    name: Null Field
+    targets: [factory]
+    baseUrl: https://example.com/v1
+    apiKey: env.API_KEY
+    enabled: false
+    models:
+      model:
+        displayName: Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: false
+        extensions:
+          chatgpt:
+            catalogId: null

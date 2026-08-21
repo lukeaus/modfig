@@ -1,0 +1,50 @@
+# Disabled records are validated but do not collide with emitted identities.
+specVersion: "0.1"
+providers:
+  active:
+    name: Active
+    targets: [chatgpt]
+    baseUrl: https://active.example/v1
+    apiKey: env.ACTIVE_KEY
+    provider: openai
+    enabled: true
+    extensions:
+      chatgpt:
+        providerId: modfig-shared
+        default: true
+    models:
+      active-model:
+        displayName: Active Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+        extensions:
+          chatgpt:
+            catalogId: shared-catalog
+      disabled-model:
+        displayName: Disabled Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: false
+        extensions:
+          chatgpt:
+            catalogId: shared-catalog
+  disabled:
+    name: Disabled
+    targets: [chatgpt]
+    baseUrl: https://disabled.example/v1
+    apiKey: env.DISABLED_KEY
+    provider: openai
+    enabled: false
+    extensions:
+      chatgpt:
+        providerId: modfig-shared
+    models:
+      other-model:
+        displayName: Other Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+        extensions:
+          chatgpt:
+            catalogId: shared-catalog

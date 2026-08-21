@@ -1,0 +1,15 @@
+specVersion: "0.1"
+providers:
+  anthropic:
+    name: Anthropic
+    targets: [chatgpt]
+    baseUrl: https://api.anthropic.com/v1
+    apiKey: env.ANTHROPIC_API_KEY
+    provider: anthropic
+    enabled: true
+    models:
+      claude:
+        displayName: Claude
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true

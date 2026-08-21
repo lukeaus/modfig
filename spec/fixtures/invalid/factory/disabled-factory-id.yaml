@@ -1,0 +1,19 @@
+# VAL-CATALOG-004: stored extensions.factory.id is rejected; Factory ids are
+# computed as custom:<slug>--<provider-key>.
+specVersion: "0.1"
+providers:
+  disabled-factory:
+    name: Disabled Factory
+    targets: [vscode]
+    baseUrl: https://example.com/v1
+    apiKey: env.API_KEY
+    enabled: false
+    models:
+      model:
+        displayName: Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: false
+        extensions:
+          factory:
+            id: custom:model--wrong-provider

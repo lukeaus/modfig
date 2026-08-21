@@ -1,0 +1,27 @@
+# AC-3.1: duplicate YAML key must be rejected by the duplicate-key-aware loader.
+specVersion: "0.1"
+providers:
+  umans-ai:
+    name: Umans AI
+    targets: [factory]
+    baseUrl: https://api.code.umans.ai/v1
+    apiKey: env.UMANS_API_KEY
+    enabled: true
+    models:
+      umans-glm-5.2:
+        displayName: GLM 5.2 [Umans AI]
+        contextWindow: 1048576
+        maxOutputTokens: 131071
+        enabled: true
+  umans-ai:
+    name: Umans AI Duplicate
+    targets: [factory]
+    baseUrl: https://api.code.umans.ai/v1
+    apiKey: env.UMANS_API_KEY
+    enabled: true
+    models:
+      umans-glm-5.2:
+        displayName: GLM 5.2 [Umans AI]
+        contextWindow: 1048576
+        maxOutputTokens: 131071
+        enabled: true

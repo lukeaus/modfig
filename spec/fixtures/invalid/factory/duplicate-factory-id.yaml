@@ -1,0 +1,23 @@
+# AC-4.4: two enabled Factory-targeted models whose slugs collide produce a
+# duplicate effective Factory model id. "Foo Bar" and "Foo-Bar" are distinct
+# model names (so per-provider model uniqueness passes) but both slugify to
+# "foo-bar", yielding custom:foo-bar--umans-ai twice.
+specVersion: "0.1"
+providers:
+  umans-ai:
+    name: Umans AI
+    targets: [factory]
+    baseUrl: https://api.code.umans.ai/v1
+    apiKey: env.UMANS_API_KEY
+    enabled: true
+    models:
+      "Foo Bar":
+        displayName: Foo Bar
+        contextWindow: 1048576
+        maxOutputTokens: 131071
+        enabled: true
+      "Foo-Bar":
+        displayName: Foo Bar Variant
+        contextWindow: 1048576
+        maxOutputTokens: 131071
+        enabled: true

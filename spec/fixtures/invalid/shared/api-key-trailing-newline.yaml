@@ -1,0 +1,15 @@
+specVersion: "0.1"
+providers:
+  trailing-api-key:
+    name: Trailing Api Key
+    targets: [factory]
+    baseUrl: https://example.com/v1
+    apiKey: |
+      env.API_KEY
+    enabled: false
+    models:
+      model:
+        displayName: Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: false

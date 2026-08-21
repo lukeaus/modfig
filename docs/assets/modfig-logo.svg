@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="ModFig reconcile mark">
+  <defs>
+    <linearGradient id="ring3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+  <g transform="matrix(-1 0 0 1 240 0)">
+    <path d="M58 78 L100 120 M58 162 L100 120"
+          stroke="#C4B5FD" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="58" cy="78" r="22" fill="#4F46E5"/>
+    <circle cx="58" cy="162" r="22" fill="#4F46E5"/>
+    <rect x="92" y="92" width="56" height="56" rx="24" fill="none" stroke="url(#ring3)" stroke-width="14"/>
+    <path d="M120 108 C132 116 132 124 120 132 C108 124 108 116 120 108 Z" fill="#8B5CF6"/>
+  </g>
+</svg>

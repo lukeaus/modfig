@@ -1,0 +1,33 @@
+{
+  "contractVersion": 1,
+  "target": "chatgpt",
+  "surface": "cli-tui",
+  "characterizationStatus": "unproven",
+  "configRootResolution": {
+    "environmentVariable": "CODEX_HOME",
+    "defaultPathTemplate": "${HOME}/.codex",
+    "configFilename": "config.toml"
+  },
+  "baseConfigPath": "${CODEX_HOME:-${HOME}/.codex}/config.toml",
+  "profileConfigPathTemplate": "${CODEX_HOME:-${HOME}/.codex}/<provider-key>.config.toml",
+  "profileSelection": {
+    "namePattern": "<provider-key>",
+    "mechanism": "codex --profile <provider-key>",
+    "status": "required"
+  },
+  "selectedProfileInspection": "read-only",
+  "ownedProviderNamespace": "modfig-<provider-key>",
+  "activeSelectionFields": ["model", "model_provider"],
+  "managedOverrideBehavior": "fail-closed",
+  "wireApi": "responses",
+  "credentialField": "env_key",
+  "catalog": {
+    "status": "proven",
+    "pointerKey": "model_catalog_json",
+    "managedPathTemplate": "${CODEX_HOME:-${HOME}/.codex}/modfig-<provider-key>-catalog.json",
+    "visibility": "list",
+    "selectionSemantics": "replaces-picker-list",
+    "staleRemoval": "sha256-ownership-reconciliation",
+    "basePointer": "managed-root-key-only"
+  }
+}

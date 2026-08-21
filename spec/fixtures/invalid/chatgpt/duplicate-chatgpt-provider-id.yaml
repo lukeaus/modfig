@@ -1,0 +1,32 @@
+specVersion: "0.1"
+providers:
+  first:
+    name: First
+    targets: [chatgpt]
+    baseUrl: https://first.example/v1
+    apiKey: env.FIRST_KEY
+    provider: openai
+    enabled: true
+    extensions:
+      chatgpt: {providerId: modfig-shared}
+    models:
+      first-model:
+        displayName: First Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+  second:
+    name: Second
+    targets: [chatgpt]
+    baseUrl: https://second.example/v1
+    apiKey: env.SECOND_KEY
+    provider: openai
+    enabled: true
+    extensions:
+      chatgpt: {providerId: modfig-shared}
+    models:
+      second-model:
+        displayName: Second Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true

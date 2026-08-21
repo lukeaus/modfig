@@ -1,0 +1,33 @@
+# Two emitting ChatGPT providers require exactly one default.
+specVersion: "0.1"
+providers:
+  surplus:
+    name: Surplus
+    targets: [chatgpt]
+    baseUrl: https://surplus.example/v1
+    apiKey: env.SURPLUS_KEY
+    provider: generic-chat-completion-api
+    enabled: true
+    extensions:
+      chatgpt:
+        wireApi: responses
+        default: true
+    models:
+      gpt-5.6-sol:
+        displayName: GPT-5.6 Sol
+        contextWindow: 1000000
+        maxOutputTokens: 64000
+        enabled: true
+  openrouter:
+    name: OpenRouter
+    targets: [chatgpt]
+    baseUrl: https://openrouter.ai/api/v1
+    apiKey: env.OPEN_ROUTER_API_KEY
+    provider: openai
+    enabled: true
+    models:
+      router-sol:
+        displayName: GPT-5.6 Sol
+        contextWindow: 1000000
+        maxOutputTokens: 64000
+        enabled: true

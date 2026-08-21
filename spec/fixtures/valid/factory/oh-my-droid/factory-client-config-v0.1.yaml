@@ -1,0 +1,38 @@
+specVersion: "0.1"
+providers:
+  router:
+    name: Router
+    targets: [factory]
+    baseUrl: https://router.example/v1
+    apiKey: env.ROUTER_KEY
+    provider: openai
+    enabled: true
+    models:
+      primary:
+        displayName: Primary
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+clientConfig:
+  factory:
+    core:
+      defaults:
+        worker: {provider: router, model: primary}
+        thinker: {provider: router, model: primary}
+        orchestrator: {provider: router, model: primary}
+        simple: {provider: router, model: primary}
+        validator: {provider: router, model: primary}
+      session:
+        model: {provider: router, model: primary}
+        reasoningEffort: high
+        specModeModel: {factoryNative: claude-opus-4-8}
+        specModeReasoningEffort: max
+      mission:
+        orchestratorModel: {provider: router, model: primary}
+        workerModel: {provider: router, model: primary}
+        validationWorkerModel: {factoryNative: native-validator}
+    extensions:
+      oh-my-droid:
+        droids:
+          analyst: {provider: router, model: primary}
+        prune: false

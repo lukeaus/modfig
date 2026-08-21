@@ -1,0 +1,15 @@
+specVersion: "0.1"
+providers:
+  missing:
+    name: Missing
+    targets: [chatgpt]
+    baseUrl: https://example.com/v1
+    apiKey: env.API_KEY
+    enabled: true
+    models:
+      model:
+        displayName: Model
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        provider: openai
+        enabled: true

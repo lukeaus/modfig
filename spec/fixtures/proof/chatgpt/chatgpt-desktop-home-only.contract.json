@@ -1,0 +1,28 @@
+{
+  "contractVersion": 1,
+  "target": "chatgpt",
+  "surface": "desktop",
+  "platform": "macos",
+  "characterizationStatus": "partial",
+  "configRootResolution": {
+    "environmentVariable": "CODEX_HOME",
+    "observed": "inherited-by-bundled-app-server",
+    "defaultPathTemplate": "${HOME}/.codex"
+  },
+  "profileSelection": {
+    "namePattern": "<provider-key>",
+    "mechanism": "not-observed",
+    "status": "not-proven"
+  },
+  "observedBaseMarker": "rejected",
+  "catalog": {
+    "status": "unproven"
+  },
+  "supportStatus": "unsupported",
+  "sanitization": {
+    "containsCredentialValues": false,
+    "containsEnvironmentValues": false,
+    "containsFullArgv": false,
+    "containsRawClientState": false
+  }
+}

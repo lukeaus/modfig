@@ -1,0 +1,15 @@
+# AC-8.3: non-loopback HTTP baseUrl is insecure and must be rejected.
+specVersion: "0.1"
+providers:
+  umans-ai:
+    name: Umans AI
+    targets: [factory]
+    baseUrl: http://api.code.umans.ai/v1
+    apiKey: env.UMANS_API_KEY
+    enabled: true
+    models:
+      umans-glm-5.2:
+        displayName: GLM 5.2 [Umans AI]
+        contextWindow: 1048576
+        maxOutputTokens: 131071
+        enabled: true

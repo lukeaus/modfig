@@ -1,0 +1,25 @@
+# Nullable model extension mappings remain equivalent to absence.
+# An emitting ChatGPT provider must mark exactly one default.
+specVersion: "0.1"
+providers:
+  openai:
+    name: OpenAI
+    targets: [chatgpt]
+    baseUrl: https://api.openai.com/v1
+    apiKey: env.OPENAI_API_KEY
+    provider: openai
+    enabled: true
+    extensions:
+      chatgpt:
+        default: true
+    models:
+      gpt-5-mini:
+        displayName: GPT 5 Mini
+        contextWindow: 128000
+        maxOutputTokens: 16384
+        maxInputTokens: null
+        noImageSupport: null
+        toolCalling: null
+        favourite: null
+        enabled: true
+        extensions: null

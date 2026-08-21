@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modfig.dev/spec/vscode-runtime-proof.schema.json",
+  "title": "ModFig Stable VS Code Runtime Proof",
+  "description": "Sanitized, versioned facts captured read-only from installed stable Microsoft Code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["proofVersion", "binding", "contract", "capture"],
+  "properties": {
+    "proofVersion": {"const": 1},
+    "binding": {"$ref": "#/$defs/binding"},
+    "contract": {"$ref": "#/$defs/contract"},
+    "capture": {"$ref": "#/$defs/capture"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "channel", "profileMode", "version", "build", "bundleIdentity", "executableSha256"],
+      "properties": {
+        "platform": {"enum": ["macos", "linux"]},
+        "channel": {"const": "stable"},
+        "profileMode": {"const": "default"},
+        "version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"},
+        "build": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"},
+        "bundleIdentity": {"const": "com.microsoft.VSCode"},
+        "executableSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "safeStorage", "keyContext", "secretFormat"],
+      "oneOf": [
+        {
+          "properties": {
+            "identity": {"const": "vscode-stable-macos-oscrypt-v10-v1"},
+            "safeStorage": {"const": "proven"},
+            "keyContext": {"const": "proven"},
+            "secretFormat": {"const": "oscrypt-v10"}
+          }
+        },
+        {
+          "properties": {
+            "identity": {"const": "vscode-stable-linux-oscrypt-v11-v1"},
+            "safeStorage": {"const": "proven"},
+            "keyContext": {"const": "proven"},
+            "secretFormat": {"const": "oscrypt-v11"}
+          }
+        },
+        {
+          "properties": {
+            "identity": {"const": "vscode-stable-linux-basic-text-v1"},
+            "safeStorage": {"const": "proven"},
+            "keyContext": {"const": "proven"},
+            "secretFormat": {"const": "basic-text"}
+          }
+        }
+      ]
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provenance", "capturedAt", "freshUntil"],
+      "properties": {
+        "provenance": {"const": "read-only-installed-stable-code"},
+        "capturedAt": {"type": "string", "format": "date-time"},
+        "freshUntil": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

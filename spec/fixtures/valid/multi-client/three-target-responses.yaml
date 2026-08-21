@@ -1,0 +1,19 @@
+# Three canonical targets with Responses-compatible ChatGPT transport.
+specVersion: "0.1"
+providers:
+  openai-main:
+    name: OpenAI Main
+    targets: [factory, vscode, chatgpt]
+    baseUrl: https://api.openai.com/v1
+    apiKey: env.OPENAI_API_KEY
+    provider: openai
+    enabled: true
+    extensions:
+      chatgpt:
+        default: true
+    models:
+      gpt-5.6-sol:
+        displayName: GPT 5.6 Sol
+        contextWindow: 400000
+        maxOutputTokens: 128000
+        enabled: true
