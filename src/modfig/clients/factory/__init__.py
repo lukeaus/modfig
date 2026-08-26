@@ -741,7 +741,7 @@ def probe_factory_responses(
     registry: Registry,
     environ: Mapping[str, str],
     *,
-    timeout: float = 10.0,
+    timeout: float = 90.0,
 ) -> tuple[tuple[str, str], ...]:
     """Probe each enabled Factory-targeted ``openai`` model at ``/responses``.
 
