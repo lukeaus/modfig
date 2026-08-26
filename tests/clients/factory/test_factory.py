@@ -199,6 +199,7 @@ def test_factory_builtin_adapter_projects_defaults_with_field_ownership() -> Non
                 "displayName": "Primary",
                 "maxOutputTokens": 1024,
                 "noImageSupport": False,
+                "provider": "generic-chat-completion-api",
             }
         ],
         "modelFavorites": ["custom:primary--router"],
@@ -740,6 +741,13 @@ def test_factory_projection_emits_provider_for_openai_with_empty_settings() -> N
     )
     models = build_models(registry, UnreadableSecrets(), {"customModels": []})
     assert models[0]["provider"] == "openai"
+
+
+def test_factory_projection_emits_provider_for_generic_with_empty_settings() -> None:
+    registry = load_registry_text(REGISTRY)
+    models = build_models(registry, UnreadableSecrets(), {"customModels": []})
+    assert models[0]["provider"] == "generic-chat-completion-api"
+    assert models[1]["provider"] == "OpenRouter"
 
 
 @pytest.mark.parametrize("model_name", ["gpt-5", "gpt-4o", "o3", "codex-mini"])

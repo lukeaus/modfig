@@ -44,7 +44,6 @@ from ...state import CollisionError, reconcile
 
 @dataclass(frozen=True)
 class FactoryShape:
-    include_provider: bool
     requires_index: bool
 
 
@@ -560,10 +559,7 @@ def _plan_scalar_fields(
 
 def _settings_shape(settings: Mapping[str, Any]) -> FactoryShape:
     models = _validate_settings(dict(settings))["customModels"]
-    return FactoryShape(
-        include_provider=any("provider" in item for item in models),
-        requires_index=any("index" in item for item in models),
-    )
+    return FactoryShape(requires_index=any("index" in item for item in models))
 
 
 def _serialize_factory_settings(settings: Mapping[str, Any]) -> bytes:
@@ -598,8 +594,7 @@ def build_model_snapshots(
         }
         if shape.requires_index:
             projected["index"] = start_index + position
-        if model.effective_provider == "openai" or shape.include_provider:
-            projected["provider"] = model.effective_provider
+        projected["provider"] = model.effective_provider
         models.append(projected)
     return tuple(models)
 
