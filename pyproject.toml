@@ -17,10 +17,38 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["mypy>=1.10", "ruff==0.16.4", "pytest>=8.0", "build>=1.2", "types-PyYAML>=6.0"]
+dev = [
+    "mypy>=1.10",
+    "ruff==0.16.4",
+    "pytest>=8.0",
+    "build>=1.2",
+    "types-PyYAML>=6.0",
+    "commitizen==4.18.0",
+    "pre-commit>=4,<5",
+]
 
 [project.scripts]
 modfig = "modfig.cli:main"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+allowed_prefixes = ["Merge", "Revert", "Pull request", "fixup!", "squash!", "amend!"]
+breaking_change_exclamation_in_title = false
+
+[tool.semantic_release]
+commit_parser = "conventional"
+tag_format = "v{version}"
+version_toml = ["pyproject.toml:project.version"]
+allow_zero_version = true
+major_on_zero = false
+build_command = "python -m build --sdist --wheel ."
+commit_message = "chore: release v{version}"
+
+[tool.semantic_release.commit_parser_options]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
+ignore_merge_commits = true
+parse_squash_commits = true
 
 [tool.setuptools]
 package-dir = {"" = "src"}

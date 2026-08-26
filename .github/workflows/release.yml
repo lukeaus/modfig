@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Pin checkout to triggering commit
+        env:
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: git reset --hard "$WORKFLOW_SHA"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install release tooling
+        run: |
+          python -m pip install --upgrade pip
+          # PSR 10.6.1 accesses Actor.name_email_regex, removed in GitPython 3.1.60.
+          python -m pip install \
+            "python-semantic-release==10.6.1" \
+            "GitPython==3.1.59" \
+            "build>=1.2,<2"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_COMMIT_AUTHOR: github-actions <actions@users.noreply.github.com>
+        run: |
+          git config user.name github-actions
+          git config user.email actions@users.noreply.github.com
+          semantic-release -v version --no-changelog --skip-build
