@@ -297,7 +297,9 @@ _SCALAR_POINTERS = {
     "mission.defaultWorkerModel": "/missionModelSettings/workerModel",
     "mission.defaultWorkerReasoningEffort": "/missionModelSettings/workerReasoningEffort",
     "mission.defaultValidationWorkerModel": "/missionModelSettings/validationWorkerModel",
-    "mission.defaultValidationWorkerReasoningEffort": "/missionModelSettings/validationWorkerReasoningEffort",
+    "mission.defaultValidationWorkerReasoningEffort": (
+        "/missionModelSettings/validationWorkerReasoningEffort"
+    ),
 }
 _POINTER_TOKEN_RE = re.compile(r"(?:[^~/]|~[01])*")
 _DIGEST_RE = re.compile(r"[0-9a-f]{64}")
