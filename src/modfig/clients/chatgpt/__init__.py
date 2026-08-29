@@ -7,7 +7,7 @@ import platform
 import re
 import shutil
 import subprocess
-from collections.abc import Callable, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Collection, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
@@ -590,6 +590,14 @@ class ChatGPTAdapter:
         legacy_catalog_hash = _legacy_owned_hashes(ownership).get(
             _CHATGPT_LEGACY_CATALOG_ARTIFACT.relative_path
         )
+        # ponytail: pointers to any catalog we previously wrote (e.g. an old
+        # default provider's) are owned; allow rebasing the pointer to the new
+        # default provider's catalog.
+        owned_catalog_jsons = tuple(
+            str((runtime.codex_home / path).absolute())
+            for path in _artifact_hashes(ownership)
+            if path.name != "config.toml" and path.name.endswith("-catalog.json")
+        )
         artifacts: list[PlannedArtifact] = []
         artifact_hashes: dict[str, str] = {}
         projected_by_key: dict[str, Mapping[str, object]] = {}
@@ -609,6 +617,7 @@ class ChatGPTAdapter:
                 previous,
                 catalog_pointer,
                 legacy_catalog_json if legacy_catalog_hash is not None else None,
+                owned_catalog_jsons,
             )
             profile_planned = dump_toml(profile_document)
             catalog_planned = _project_chatgpt_catalog(models)
@@ -655,6 +664,7 @@ class ChatGPTAdapter:
             previous,
             default_catalog_pointer,
             legacy_catalog_json if legacy_catalog_hash is not None else None,
+            owned_catalog_jsons,
         )
         planned_base = dump_toml(base_document)
         artifacts.append(
@@ -1103,8 +1113,11 @@ def _reconcile_single_provider(
     previous: Mapping[str, str],
     managed_catalog_json: str,
     legacy_catalog_json: str | None = None,
+    owned_catalog_jsons: Collection[str] = (),
 ) -> None:
-    _ensure_managed_catalog_pointer(document, managed_catalog_json, legacy_catalog_json)
+    _ensure_managed_catalog_pointer(
+        document, managed_catalog_json, legacy_catalog_json, owned_catalog_jsons
+    )
     root = cast(MutableMapping[str, Any], document)
     profiles = root.get("profiles")
     if isinstance(profiles, Mapping):
@@ -1241,14 +1254,19 @@ def _ensure_managed_catalog_pointer(
     document: TOMLDocument,
     managed_catalog_json: str,
     legacy_catalog_json: str | None = None,
+    owned_catalog_jsons: Collection[str] = (),
 ) -> None:
     root = cast(MutableMapping[str, Any], document)
     if "catalog" in root:
         raise AdapterPlanError("ChatGPT catalog override cannot be safely managed")
     existing_pointer = root.get("model_catalog_json")
+    # ponytail: allow pointers to any previously owned provider catalog; only
+    # the current default's and the legacy name were accepted before, which
+    # blocked switching the default provider between owned profiles.
     if existing_pointer is not None and existing_pointer not in {
         managed_catalog_json,
         legacy_catalog_json,
+        *owned_catalog_jsons,
     }:
         raise AdapterPlanError("unowned ChatGPT model catalog pointer; refusing overwrite")
     profiles = root.get("profiles")
