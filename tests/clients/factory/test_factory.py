@@ -260,6 +260,11 @@ def test_factory_builtin_adapter_projects_session_and_mission_scalars() -> None:
         "worker": {"reasoning": "low"},
         "validation": {"model": "factory-native-validator"},
     }
+    assert settings["missionOrchestratorModel"] == "custom:primary--router"
+    assert settings["missionModelSettings"] == {
+        "workerReasoningEffort": "low",
+        "validationWorkerModel": "factory-native-validator",
+    }
     assert {(field["logicalKey"], field["jsonPointer"]) for field in plan.ownership["fields"]} == {
         ("session.model", "/session/model"),
         ("session.reasoningEffort", "/session/reasoning"),
@@ -275,6 +280,15 @@ def test_factory_builtin_adapter_projects_session_and_mission_scalars() -> None:
         ("mission.orchestratorModel", "/mission/orchestrator/model"),
         ("mission.workerReasoningEffort", "/mission/worker/reasoning"),
         ("mission.validationWorkerModel", "/mission/validation/model"),
+        ("mission.defaultOrchestratorModel", "/missionOrchestratorModel"),
+        (
+            "mission.defaultWorkerReasoningEffort",
+            "/missionModelSettings/workerReasoningEffort",
+        ),
+        (
+            "mission.defaultValidationWorkerModel",
+            "/missionModelSettings/validationWorkerModel",
+        ),
     }
 
 

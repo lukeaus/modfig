@@ -226,6 +226,42 @@ _SCALAR_FIELD_BY_KEY.update(
             "features.core.session",
             "reasoning",
         ),
+        "mission.defaultOrchestratorModel": (
+            "mission",
+            "orchestratorModel",
+            "features.core.mission",
+            "model",
+        ),
+        "mission.defaultOrchestratorReasoningEffort": (
+            "mission",
+            "orchestratorReasoningEffort",
+            "features.core.mission",
+            "reasoning",
+        ),
+        "mission.defaultWorkerModel": (
+            "mission",
+            "workerModel",
+            "features.core.mission",
+            "model",
+        ),
+        "mission.defaultWorkerReasoningEffort": (
+            "mission",
+            "workerReasoningEffort",
+            "features.core.mission",
+            "reasoning",
+        ),
+        "mission.defaultValidationWorkerModel": (
+            "mission",
+            "validationWorkerModel",
+            "features.core.mission",
+            "model",
+        ),
+        "mission.defaultValidationWorkerReasoningEffort": (
+            "mission",
+            "validationWorkerReasoningEffort",
+            "features.core.mission",
+            "reasoning",
+        ),
     }
 )
 _SCALAR_ALIAS_TO_PRIMARY = {
@@ -233,6 +269,12 @@ _SCALAR_ALIAS_TO_PRIMARY = {
     "session.defaultReasoningEffort": "session.reasoningEffort",
     "session.defaultSpecModeModel": "session.specModeModel",
     "session.defaultSpecModeReasoningEffort": "session.specModeReasoningEffort",
+    "mission.defaultOrchestratorModel": "mission.orchestratorModel",
+    "mission.defaultOrchestratorReasoningEffort": "mission.orchestratorReasoningEffort",
+    "mission.defaultWorkerModel": "mission.workerModel",
+    "mission.defaultWorkerReasoningEffort": "mission.workerReasoningEffort",
+    "mission.defaultValidationWorkerModel": "mission.validationWorkerModel",
+    "mission.defaultValidationWorkerReasoningEffort": "mission.validationWorkerReasoningEffort",
 }
 _SCALAR_POINTERS = {
     **{f"defaults.{role}": f"/agents/{role}/model" for role in _DEFAULT_ROLES},
@@ -250,6 +292,12 @@ _SCALAR_POINTERS = {
     "mission.workerReasoningEffort": "/mission/worker/reasoning",
     "mission.validationWorkerModel": "/mission/validation/model",
     "mission.validationWorkerReasoningEffort": "/mission/validation/reasoning",
+    "mission.defaultOrchestratorModel": "/missionOrchestratorModel",
+    "mission.defaultOrchestratorReasoningEffort": "/missionOrchestratorReasoningEffort",
+    "mission.defaultWorkerModel": "/missionModelSettings/workerModel",
+    "mission.defaultWorkerReasoningEffort": "/missionModelSettings/workerReasoningEffort",
+    "mission.defaultValidationWorkerModel": "/missionModelSettings/validationWorkerModel",
+    "mission.defaultValidationWorkerReasoningEffort": "/missionModelSettings/validationWorkerReasoningEffort",
 }
 _POINTER_TOKEN_RE = re.compile(r"(?:[^~/]|~[01])*")
 _DIGEST_RE = re.compile(r"[0-9a-f]{64}")
