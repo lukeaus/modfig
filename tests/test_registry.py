@@ -552,6 +552,24 @@ def test_v01_parses_typed_factory_model_selections() -> None:
     assert isinstance(core["session"]["specModeModel"], FactoryNativeReference)
 
 
+def test_v01_parses_factory_subagent_model_selections() -> None:
+    text = V01_FACTORY_AND_CURSOR.replace(
+        "        validationWorkerReasoningEffort: low\n",
+        "        validationWorkerReasoningEffort: low\n"
+        "      subagent:\n"
+        "        lightModel: {provider: router, model: primary}\n"
+        "        mediumModel: {provider: router, model: primary}\n"
+        "        heavyModel: {factoryNative: native-heavy}\n",
+    )
+    registry = load_registry_text(text)
+    core = registry.client_component("factory", "core")
+
+    assert core is not None
+    assert isinstance(core["subagent"]["lightModel"], ModelReference)
+    assert isinstance(core["subagent"]["mediumModel"], ModelReference)
+    assert isinstance(core["subagent"]["heavyModel"], FactoryNativeReference)
+
+
 def test_v01_resolves_a_portable_factory_reference() -> None:
     registry = load_registry_text(V01_FACTORY_AND_CURSOR)
 

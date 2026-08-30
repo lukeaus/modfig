@@ -334,7 +334,9 @@ def _parse_oh_my_droid_extension(
 def _parse_factory_core(
     value: Mapping[str, Any], location: str, issues: list[str]
 ) -> Mapping[str, object]:
-    _reject_unknown_fields(value, {"defaults", "session", "mission"}, location, issues)
+    _reject_unknown_fields(
+        value, {"defaults", "session", "mission", "subagent"}, location, issues
+    )
     parsed: dict[str, object] = {}
     if "defaults" in value:
         defaults_location = f"{location}.defaults"
@@ -369,6 +371,14 @@ def _parse_factory_core(
                 "workerReasoningEffort",
                 "validationWorkerReasoningEffort",
             },
+            issues,
+        )
+    if "subagent" in value:
+        parsed["subagent"] = _parse_factory_section(
+            value["subagent"],
+            f"{location}.subagent",
+            {"lightModel", "mediumModel", "heavyModel"},
+            set(),
             issues,
         )
     return parsed

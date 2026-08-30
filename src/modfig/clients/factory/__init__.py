@@ -195,6 +195,9 @@ _SCALAR_FIELDS = (
     ("mission", "workerReasoningEffort", "features.core.mission", "reasoning"),
     ("mission", "validationWorkerModel", "features.core.mission", "model"),
     ("mission", "validationWorkerReasoningEffort", "features.core.mission", "reasoning"),
+    ("subagent", "lightModel", "features.core.subagent", "model"),
+    ("subagent", "mediumModel", "features.core.subagent", "model"),
+    ("subagent", "heavyModel", "features.core.subagent", "model"),
 )
 _SCALAR_FIELD_BY_KEY = {
     f"{section}.{name}": (section, name, feature, kind)
@@ -300,6 +303,9 @@ _SCALAR_POINTERS = {
     "mission.defaultValidationWorkerReasoningEffort": (
         "/missionModelSettings/validationWorkerReasoningEffort"
     ),
+    "subagent.lightModel": "/subagentModelSettings/lightModel",
+    "subagent.mediumModel": "/subagentModelSettings/mediumModel",
+    "subagent.heavyModel": "/subagentModelSettings/heavyModel",
 }
 _POINTER_TOKEN_RE = re.compile(r"(?:[^~/]|~[01])*")
 _DIGEST_RE = re.compile(r"[0-9a-f]{64}")
@@ -343,7 +349,7 @@ def _ownership_ids(ownership: AdapterOwnership, key: str) -> frozenset[str]:
 def _validate_factory_config(config: Mapping[str, object]) -> None:
     if not config:
         return
-    if not set(config) <= {"defaults", "session", "mission"}:
+    if not set(config) <= {"defaults", "session", "mission", "subagent"}:
         raise AdapterPlanError("Factory core has unsupported settings")
     if "defaults" in config:
         defaults = config["defaults"]
@@ -364,6 +370,14 @@ def _validate_factory_config(config: Mapping[str, object]) -> None:
                 "workerReasoningEffort",
                 "validationWorkerModel",
                 "validationWorkerReasoningEffort",
+            },
+        ),
+        (
+            "subagent",
+            {
+                "lightModel",
+                "mediumModel",
+                "heavyModel",
             },
         ),
     ):

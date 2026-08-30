@@ -103,6 +103,15 @@
             "validationWorkerModel": { "$ref": "#/$defs/factoryModelSelection" },
             "validationWorkerReasoningEffort": { "$ref": "#/$defs/reasoningEffort" }
           }
+        },
+        "subagent": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "lightModel": { "$ref": "#/$defs/factoryModelSelection" },
+            "mediumModel": { "$ref": "#/$defs/factoryModelSelection" },
+            "heavyModel": { "$ref": "#/$defs/factoryModelSelection" }
+          }
         }
       }
     },
