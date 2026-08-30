@@ -129,11 +129,11 @@ class Model:
             raw_args = factory_extension["extraArgs"]
             if isinstance(raw_args, Mapping):
                 merged: dict[str, Any] = dict(raw_args)
-                if providers_valid:
+                if providers_valid and isinstance(providers, (list, tuple)):
                     merged["provider"] = list(providers)
                 return merged
             return raw_args
-        if providers_valid:
+        if providers_valid and isinstance(providers, (list, tuple)):
             return {"provider": list(providers)}
         return None
 
