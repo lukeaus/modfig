@@ -185,7 +185,7 @@ def _config_shape(path: Path) -> dict[str, object]:
     try:
         document = load_chatgpt_config(path).document
     except Exception as exc:
-        raise _proof_error(f"config.toml could not be parsed at {path}") from exc
+        raise _proof_error(f"config.toml could not be parsed at {path}: {exc}") from exc
     providers = document.get("model_providers")
     profiles = document.get("profiles")
     if providers is not None and not isinstance(providers, Mapping):
