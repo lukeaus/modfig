@@ -113,26 +113,34 @@ class Model:
         # extensions.factory carries per-model Factory settings, not IDs.
         return f"custom:{slugify(self.model)}--{provider_key}"
 
-    def factory_extra_args(self) -> Mapping[str, Any] | None:
-        """Request-body extraArgs from extensions.factory, with the providers
-        allow-list merged in as ``provider`` (Surplus provider pinning)."""
+    def factory_extra_args(self) -> Any | None:
+        """Request-body extraArgs passthrough from extensions.factory, with the
+        providers allow-list merged in as ``provider`` when extraArgs is an
+        object (Surplus provider pinning). Any other shape is emitted verbatim;
+        presence wins, so an explicitly empty ``extraArgs: {}`` survives."""
         factory_extension = self.extensions.get("factory")
         if not isinstance(factory_extension, Mapping):
             return None
-        merged: dict[str, Any] = {}
-        raw_args = factory_extension.get("extraArgs")
-        if isinstance(raw_args, Mapping):
-            merged.update(raw_args)
         providers = factory_extension.get("providers")
-        if isinstance(providers, (list, tuple)) and all(isinstance(p, str) for p in providers):
-            merged["provider"] = list(providers)
-        return merged if merged else None
+        providers_valid = isinstance(providers, (list, tuple)) and all(
+            isinstance(p, str) for p in providers
+        )
+        if "extraArgs" in factory_extension:
+            raw_args = factory_extension["extraArgs"]
+            if isinstance(raw_args, Mapping):
+                merged: dict[str, Any] = dict(raw_args)
+                if providers_valid:
+                    merged["provider"] = list(providers)
+                return merged
+            return raw_args
+        if providers_valid:
+            return {"provider": list(providers)}
+        return None
 
-    def factory_extra_headers(self) -> Mapping[str, Any] | None:
+    def factory_extra_headers(self) -> Any | None:
         factory_extension = self.extensions.get("factory")
         if isinstance(factory_extension, Mapping) and "extraHeaders" in factory_extension:
-            extra_headers = factory_extension["extraHeaders"]
-            return extra_headers if isinstance(extra_headers, Mapping) else None
+            return factory_extension["extraHeaders"]
         return None
 
     def factory_providers(self) -> tuple[str, ...] | None:
@@ -143,18 +151,16 @@ class Model:
                 return tuple(providers)
         return None
 
-    def vscode_extra_args(self) -> Mapping[str, Any] | None:
+    def vscode_extra_args(self) -> Any | None:
         vscode_extension = self.extensions.get("vscode")
         if isinstance(vscode_extension, Mapping) and "extraArgs" in vscode_extension:
-            extra_args = vscode_extension["extraArgs"]
-            return extra_args if isinstance(extra_args, Mapping) else None
+            return vscode_extension["extraArgs"]
         return None
 
-    def vscode_extra_headers(self) -> Mapping[str, Any] | None:
+    def vscode_extra_headers(self) -> Any | None:
         vscode_extension = self.extensions.get("vscode")
         if isinstance(vscode_extension, Mapping) and "extraHeaders" in vscode_extension:
-            extra_headers = vscode_extension["extraHeaders"]
-            return extra_headers if isinstance(extra_headers, Mapping) else None
+            return vscode_extension["extraHeaders"]
         return None
 
     def vscode_id(self) -> str:
@@ -765,7 +771,13 @@ def _validate_model_extensions(
     # pass-throughs. `factory.providers` is the Surplus provider-pinning
     # allow-list; `extraArgs`/`extraHeaders` on factory/vscode are unvalidated
     # request passthroughs rendered in each target's native format. Anything
-    # outside the declared keys stays rejected (VAL-CATALOG-004).
+    # ponytail: the model-level per-target extension namespaces are thin
+    # pass-throughs. `factory.providers` is the Surplus provider-pinning
+    # allow-list (shape-checked: non-empty list of non-empty strings);
+    # extraArgs/extraHeaders on factory/vscode pass through with no shape or
+    # type checks at all — any YAML value is emitted verbatim in each target's
+    # native format. Anything outside the declared keys stays rejected
+    # (VAL-CATALOG-004).
     _reject_unknown_fields(
         extensions, {"vscode", "chatgpt", "factory"}, f"{location}.extensions", issues
     )
@@ -788,11 +800,6 @@ def _validate_model_extensions(
                 issues.append(
                     f"{factory_location}.providers must be a non-empty list of non-empty strings"
                 )
-        for passthrough_key in ("extraArgs", "extraHeaders"):
-            if passthrough_key in factory_mapping and not isinstance(
-                factory_mapping[passthrough_key], Mapping
-            ):
-                issues.append(f"{factory_location}.{passthrough_key} must be a mapping")
     if "vscode" in extensions:
         vscode_location = f"{location}.extensions.vscode"
         vscode_mapping = _mapping(extensions["vscode"], vscode_location, issues)
@@ -802,11 +809,6 @@ def _validate_model_extensions(
             vscode_location,
             issues,
         )
-        for passthrough_key in ("extraArgs", "extraHeaders"):
-            if passthrough_key in vscode_mapping and not isinstance(
-                vscode_mapping[passthrough_key], Mapping
-            ):
-                issues.append(f"{vscode_location}.{passthrough_key} must be a mapping")
         if "id" in vscode_mapping:
             vscode_id = vscode_mapping["id"]
             if not isinstance(vscode_id, str) or not vscode_id:

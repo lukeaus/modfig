@@ -1499,9 +1499,9 @@ def project_vscode_model_snapshots(
                 provider_entries[model.provider_key]["settings"][model_id] = {}
         # ponytail: VS Code's chatLanguageModels contract renders request
         # passthroughs as modelOptions (body) and requestHeaders (headers).
-        if model.vscode_extra_args:
+        if model.vscode_extra_args is not None:
             projected_model["modelOptions"] = model.vscode_extra_args
-        if model.vscode_extra_headers:
+        if model.vscode_extra_headers is not None:
             projected_model["requestHeaders"] = model.vscode_extra_headers
         provider_entries[model.provider_key]["models"].append(projected_model)
     return tuple(provider_entries[key] for key in order)

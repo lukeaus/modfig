@@ -754,21 +754,24 @@ def test_factory_extension_rejects_invalid_providers() -> None:
             load_registry_text(bad_content)
 
 
-def test_factory_extension_rejects_non_mapping_passthroughs() -> None:
-    for passthrough_key in ("extraArgs", "extraHeaders"):
-        content = _probe_registry(
-            provider_key="surplus",
-            name="Surplus",
-            targets="[factory]",
-            enabled="true",
-            model_ext=(
-                "        extensions:\n"
-                f"          factory:\n"
-                f"            {passthrough_key}: not-a-mapping\n"
-            ),
-        )
-        with pytest.raises(RegistryValidationError, match="must be a mapping"):
-            load_registry_text(content)
+def test_factory_extension_accepts_any_passthrough_shape() -> None:
+    # VAL-PIN-001: passthroughs are never shape- or type-checked; lists and
+    # scalars flow through verbatim alongside objects.
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[factory]",
+        enabled="true",
+        model_ext=(
+            "        extensions:\n"
+            "          factory:\n"
+            "            extraArgs: [1, two, {three: null}]\n"
+            "            extraHeaders: static\n"
+        ),
+    )
+    model = load_registry_text(content).providers[0].models[0]
+    assert model.factory_extra_args() == [1, "two", {"three": None}]
+    assert model.factory_extra_headers() == "static"
 
 
 def test_factory_extension_accepts_opaque_extra_args_values() -> None:
@@ -815,21 +818,27 @@ def test_vscode_extension_accepts_passthroughs() -> None:
     assert model.vscode_extra_headers() == {"X-Pin": "static"}
 
 
-def test_vscode_extension_rejects_non_mapping_passthroughs() -> None:
-    for passthrough_key in ("extraArgs", "extraHeaders"):
-        content = _probe_registry(
-            provider_key="surplus",
-            name="Surplus",
-            targets="[vscode]",
-            enabled="true",
-            model_ext=(
-                "        extensions:\n"
-                "          vscode:\n"
-                f"            {passthrough_key}: not-a-mapping\n"
-            ),
-        )
-        with pytest.raises(RegistryValidationError, match="must be a mapping"):
-            load_registry_text(content)
+def test_vscode_extension_accepts_any_passthrough_shape() -> None:
+    # VAL-PIN-001: vscode passthroughs are never shape- or type-checked.
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[vscode]",
+        enabled="true",
+        model_ext=(
+            "        extensions:\n"
+            "          vscode:\n"
+            "            id: custom-id\n"
+            "            extraArgs: [1, two]\n"
+            "            extraHeaders:\n"
+            "              - list\n"
+            "              - of\n"
+            "              - strings\n"
+        ),
+    )
+    model = load_registry_text(content).providers[0].models[0]
+    assert model.vscode_extra_args() == [1, "two"]
+    assert model.vscode_extra_headers() == ["list", "of", "strings"]
 
 
 def test_chatgpt_provider_extension_accepts_http_headers() -> None:

@@ -293,6 +293,31 @@ def test_current_code_projection_emits_model_options_and_request_headers() -> No
     assert projected[0]["models"][0]["requestHeaders"] == {"X-Custom": "static-value"}
 
 
+def test_current_code_projection_emits_any_shaped_passthroughs_verbatim() -> None:
+    # VAL-PIN-001: passthroughs are never shape- or type-checked; lists and
+    # scalars flow through verbatim.
+    model = ResolvedModel(
+        provider_key="router",
+        base_url="https://router.example/v1",
+        api_key_reference="env.ROUTER_KEY",
+        model="primary",
+        display_name="Primary",
+        max_output_tokens=1024,
+        effective_provider="generic-chat-completion-api",
+        no_image_support=False,
+        favourite=False,
+        factory_id="custom:primary--router",
+        vscode_id="primary",
+        vscode_extra_args=[1, "two", {"three": None}],
+        vscode_extra_headers="static",
+    )
+
+    projected = project_vscode_model_snapshots((model,), proven_runtime())
+
+    assert projected[0]["models"][0]["modelOptions"] == [1, "two", {"three": None}]
+    assert projected[0]["models"][0]["requestHeaders"] == "static"
+
+
 def test_vscode_extension_passthroughs_reach_projected_settings() -> None:
     # registry-driven: extensions.vscode.extraArgs/extraHeaders validate and
     # flow through the plan into modelOptions/requestHeaders

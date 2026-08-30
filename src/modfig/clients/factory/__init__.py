@@ -659,9 +659,9 @@ def build_model_snapshots(
         if shape.requires_index:
             projected["index"] = start_index + position
         projected["provider"] = model.effective_provider
-        if model.factory_extra_args:
+        if model.factory_extra_args is not None:
             projected["extraArgs"] = model.factory_extra_args
-        if model.factory_extra_headers:
+        if model.factory_extra_headers is not None:
             projected["extraHeaders"] = model.factory_extra_headers
         models.append(projected)
     return tuple(models)

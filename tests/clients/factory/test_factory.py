@@ -617,6 +617,15 @@ def test_build_models_emits_factory_providers_and_passthroughs() -> None:
                           temperature: 0.2
                         extraHeaders:
                           X-Pin: static
+                  gpt-5.4:
+                    displayName: GPT-5.4 [Surplus]
+                    contextWindow: 1048576
+                    maxOutputTokens: 128000
+                    enabled: true
+                    extensions:
+                      factory:
+                        extraArgs: [1, two, {three: null}]
+                        extraHeaders: static
             """
         )
     )
@@ -633,6 +642,9 @@ def test_build_models_emits_factory_providers_and_passthroughs() -> None:
     assert by_model["gpt-5.5"]["provider"] == "generic-chat-completion-api"
     assert by_model["gpt-5.5"]["extraArgs"] == {"temperature": 0.2}
     assert by_model["gpt-5.5"]["extraHeaders"] == {"X-Pin": "static"}
+    # non-object passthrough shapes are emitted verbatim
+    assert by_model["gpt-5.4"]["extraArgs"] == [1, "two", {"three": None}]
+    assert by_model["gpt-5.4"]["extraHeaders"] == "static"
 
 
 def test_build_models_does_not_read_secret_values() -> None:

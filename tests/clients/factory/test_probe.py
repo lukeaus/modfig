@@ -540,7 +540,11 @@ def test_apply_persists_factory_providers_and_passthroughs(
         "        displayName: Plain\n"
         "        contextWindow: 8192\n"
         "        maxOutputTokens: 1024\n"
-        "        enabled: true\n",
+        "        enabled: true\n"
+        "        extensions:\n"
+        "          factory:\n"
+        "            extraArgs: [1, two, {three: null}]\n"
+        "            extraHeaders: static\n",
     )
     manifest = tmp_path / "manifest.json"
     journal = tmp_path / "pending.json"
@@ -571,5 +575,6 @@ def test_apply_persists_factory_providers_and_passthroughs(
     }
     assert by_model["pinned"]["extraHeaders"] == {"X-Pin": "static"}
     assert by_model["plain"]["provider"] == "generic-chat-completion-api"
-    assert "extraArgs" not in by_model["plain"]
-    assert "extraHeaders" not in by_model["plain"]
+    # non-object passthrough shapes persist verbatim through the JSON round-trip
+    assert by_model["plain"]["extraArgs"] == [1, "two", {"three": None}]
+    assert by_model["plain"]["extraHeaders"] == "static"
