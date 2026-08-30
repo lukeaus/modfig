@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -114,20 +113,48 @@ class Model:
         # extensions.factory carries per-model Factory settings, not IDs.
         return f"custom:{slugify(self.model)}--{provider_key}"
 
-    def factory_provider(self) -> str | None:
-        """Factory-target wire provider override from extensions.factory."""
+    def factory_extra_args(self) -> Mapping[str, Any] | None:
+        """Request-body extraArgs from extensions.factory, with the providers
+        allow-list merged in as ``provider`` (Surplus provider pinning)."""
         factory_extension = self.extensions.get("factory")
-        if isinstance(factory_extension, Mapping) and "provider" in factory_extension:
-            provider = factory_extension["provider"]
-            return provider if isinstance(provider, str) else None
+        if not isinstance(factory_extension, Mapping):
+            return None
+        merged: dict[str, Any] = {}
+        raw_args = factory_extension.get("extraArgs")
+        if isinstance(raw_args, Mapping):
+            merged.update(raw_args)
+        providers = factory_extension.get("providers")
+        if isinstance(providers, (list, tuple)) and all(isinstance(p, str) for p in providers):
+            merged["provider"] = list(providers)
+        return merged if merged else None
+
+    def factory_extra_headers(self) -> Mapping[str, Any] | None:
+        factory_extension = self.extensions.get("factory")
+        if isinstance(factory_extension, Mapping) and "extraHeaders" in factory_extension:
+            extra_headers = factory_extension["extraHeaders"]
+            return extra_headers if isinstance(extra_headers, Mapping) else None
         return None
 
-    def factory_extra_args(self) -> Mapping[str, Any] | None:
-        """Request-body extraArgs passthrough from extensions.factory (e.g. pins)."""
+    def factory_providers(self) -> tuple[str, ...] | None:
         factory_extension = self.extensions.get("factory")
-        if isinstance(factory_extension, Mapping) and "extraArgs" in factory_extension:
-            extra_args = factory_extension["extraArgs"]
+        if isinstance(factory_extension, Mapping) and "providers" in factory_extension:
+            providers = factory_extension["providers"]
+            if isinstance(providers, (list, tuple)) and all(isinstance(p, str) for p in providers):
+                return tuple(providers)
+        return None
+
+    def vscode_extra_args(self) -> Mapping[str, Any] | None:
+        vscode_extension = self.extensions.get("vscode")
+        if isinstance(vscode_extension, Mapping) and "extraArgs" in vscode_extension:
+            extra_args = vscode_extension["extraArgs"]
             return extra_args if isinstance(extra_args, Mapping) else None
+        return None
+
+    def vscode_extra_headers(self) -> Mapping[str, Any] | None:
+        vscode_extension = self.extensions.get("vscode")
+        if isinstance(vscode_extension, Mapping) and "extraHeaders" in vscode_extension:
+            extra_headers = vscode_extension["extraHeaders"]
+            return extra_headers if isinstance(extra_headers, Mapping) else None
         return None
 
     def vscode_id(self) -> str:
@@ -175,6 +202,14 @@ class Provider:
     def chatgpt_default(self) -> bool:
         chatgpt_extension = self.extensions.get("chatgpt")
         return isinstance(chatgpt_extension, Mapping) and chatgpt_extension.get("default") is True
+
+    def chatgpt_http_headers(self) -> Mapping[str, Any] | None:
+        """Static request headers for the codex provider table (http_headers)."""
+        chatgpt_extension = self.extensions.get("chatgpt")
+        if isinstance(chatgpt_extension, Mapping) and "httpHeaders" in chatgpt_extension:
+            http_headers = chatgpt_extension["httpHeaders"]
+            return http_headers if isinstance(http_headers, Mapping) else None
+        return None
 
 
 @dataclass(frozen=True)
@@ -693,8 +728,24 @@ def _validate_provider_extensions(
     chatgpt_location = f"{location}.extensions.chatgpt"
     chatgpt_mapping = _mapping(extensions["chatgpt"], chatgpt_location, issues)
     _reject_unknown_fields(
-        chatgpt_mapping, {"providerId", "wireApi", "default"}, chatgpt_location, issues
+        chatgpt_mapping,
+        {"providerId", "wireApi", "default", "httpHeaders"},
+        chatgpt_location,
+        issues,
     )
+    if "httpHeaders" in chatgpt_mapping:
+        http_headers = chatgpt_mapping["httpHeaders"]
+        if not isinstance(http_headers, Mapping) or not http_headers:
+            issues.append(f"{chatgpt_location}.httpHeaders must be a non-empty mapping")
+        else:
+            for header_key, header_value in http_headers.items():
+                if not isinstance(header_key, str) or not header_key:
+                    issues.append(f"{chatgpt_location}.httpHeaders keys must be non-empty strings")
+                if not isinstance(header_value, str):
+                    issues.append(
+                        f"{chatgpt_location}.httpHeaders values must be strings "
+                        "(codex http_headers contract)"
+                    )
     if "default" in chatgpt_mapping and not isinstance(chatgpt_mapping["default"], bool):
         issues.append(f"{chatgpt_location}.default must be a boolean")
     if "providerId" in chatgpt_mapping:
@@ -710,45 +761,52 @@ def _validate_provider_extensions(
 def _validate_model_extensions(
     extensions: Mapping[str, Any], location: str, issues: list[str]
 ) -> None:
-    # ponytail: the model-level extensions.factory namespace is a thin, validated
-    # pass-through for per-model Factory app settings (wire provider override and
-    # request-body extraArgs, e.g. Surplus provider pinning); anything else stays
-    # rejected as an unknown field (VAL-CATALOG-004).
+    # ponytail: the model-level per-target extension namespaces are thin
+    # pass-throughs. `factory.providers` is the Surplus provider-pinning
+    # allow-list; `extraArgs`/`extraHeaders` on factory/vscode are unvalidated
+    # request passthroughs rendered in each target's native format. Anything
+    # outside the declared keys stays rejected (VAL-CATALOG-004).
     _reject_unknown_fields(
         extensions, {"vscode", "chatgpt", "factory"}, f"{location}.extensions", issues
     )
     if "factory" in extensions:
         factory_location = f"{location}.extensions.factory"
         factory_mapping = _mapping(extensions["factory"], factory_location, issues)
-        _reject_unknown_fields(factory_mapping, {"provider", "extraArgs"}, factory_location, issues)
-        if "provider" in factory_mapping:
-            factory_provider = factory_mapping["provider"]
-            if not isinstance(factory_provider, str) or factory_provider not in PROVIDER_PROTOCOLS:
+        _reject_unknown_fields(
+            factory_mapping,
+            {"providers", "extraArgs", "extraHeaders"},
+            factory_location,
+            issues,
+        )
+        if "providers" in factory_mapping:
+            providers = factory_mapping["providers"]
+            if (
+                not isinstance(providers, list)
+                or not providers
+                or not all(isinstance(item, str) and item for item in providers)
+            ):
                 issues.append(
-                    f"{factory_location}.provider must be one of {sorted(PROVIDER_PROTOCOLS)}"
+                    f"{factory_location}.providers must be a non-empty list of non-empty strings"
                 )
-        if "extraArgs" in factory_mapping:
-            extra_args = factory_mapping["extraArgs"]
-            if not isinstance(extra_args, Mapping) or not extra_args:
-                issues.append(f"{factory_location}.extraArgs must be a non-empty mapping")
-            else:
-                for arg_key, arg_value in extra_args.items():
-                    arg_location = f"{factory_location}.extraArgs.{arg_key}"
-                    if not isinstance(arg_key, str) or not arg_key:
-                        issues.append(f"{arg_location} key must be a non-empty string")
-                    try:
-                        json.dumps(arg_value, allow_nan=False)
-                    except (TypeError, ValueError):
-                        issues.append(f"{arg_location} must be JSON-serializable")
+        for passthrough_key in ("extraArgs", "extraHeaders"):
+            if passthrough_key in factory_mapping and not isinstance(
+                factory_mapping[passthrough_key], Mapping
+            ):
+                issues.append(f"{factory_location}.{passthrough_key} must be a mapping")
     if "vscode" in extensions:
         vscode_location = f"{location}.extensions.vscode"
         vscode_mapping = _mapping(extensions["vscode"], vscode_location, issues)
         _reject_unknown_fields(
             vscode_mapping,
-            {"id", "reasoningLevels", "defaultReasoningLevel"},
+            {"id", "reasoningLevels", "defaultReasoningLevel", "extraArgs", "extraHeaders"},
             vscode_location,
             issues,
         )
+        for passthrough_key in ("extraArgs", "extraHeaders"):
+            if passthrough_key in vscode_mapping and not isinstance(
+                vscode_mapping[passthrough_key], Mapping
+            ):
+                issues.append(f"{vscode_location}.{passthrough_key} must be a mapping")
         if "id" in vscode_mapping:
             vscode_id = vscode_mapping["id"]
             if not isinstance(vscode_id, str) or not vscode_id:

@@ -130,8 +130,11 @@ class ResolvedModel:
     chatgpt_reasoning_levels: tuple[str, ...] = ()
     chatgpt_default: bool = False
     context_window: int | None = None
-    factory_provider: str | None = None
     factory_extra_args: Mapping[str, Any] | None = None
+    factory_extra_headers: Mapping[str, Any] | None = None
+    vscode_extra_args: Mapping[str, Any] | None = None
+    vscode_extra_headers: Mapping[str, Any] | None = None
+    chatgpt_http_headers: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)

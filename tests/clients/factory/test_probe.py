@@ -227,10 +227,10 @@ def test_probe_probes_only_openai_factory_models_at_responses() -> None:
     assert generic_server.requests == []
 
 
-# --- VAL-PROBE-002b: factory wire override extends probe coverage ---
+# --- VAL-PROBE-002b: factory passthroughs do not extend probe coverage ---
 
 
-def test_probe_honors_factory_wire_override_but_not_extra_args_only() -> None:
+def test_probe_ignores_factory_passthroughs_for_coverage() -> None:
     with _stub_server() as server:
         url = f"http://127.0.0.1:{server.server_address[1]}/v1"
         registry = load_registry_text(
@@ -251,9 +251,9 @@ def test_probe_honors_factory_wire_override_but_not_extra_args_only() -> None:
             "        enabled: true\n"
             "        extensions:\n"
             "          factory:\n"
-            "            provider: openai\n"
+            "            providers: [openai]\n"
             "            extraArgs:\n"
-            "              provider: openai\n"
+            "              provider: [openai]\n"
             "      args-only:\n"
             "        displayName: Args Only\n"
             "        contextWindow: 8192\n"
@@ -262,14 +262,16 @@ def test_probe_honors_factory_wire_override_but_not_extra_args_only() -> None:
             "        extensions:\n"
             "          factory:\n"
             "            extraArgs:\n"
-            "              provider: openai\n"
+            "              provider: [openai]\n"
         )
 
         probed = probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL})
 
-    assert probed == (("router", "pinned"),)
-    assert len(server.requests) == 1
-    assert server.requests[0]["path"] == "/v1/responses"
+    # probe scope is the effective wire declared in the registry (openai), not
+    # provider pins or extraArgs passthroughs; generic transport is never
+    # Responses-probed
+    assert probed == ()
+    assert server.requests == []
 
 
 # --- VAL-PROBE-003: probe success requires usable output ---
@@ -504,10 +506,11 @@ def test_apply_aborts_before_mutation_when_probe_fails(
 
 
 @POSIX_SECURE_IO
-def test_apply_persists_factory_wire_override_and_extra_args(
+def test_apply_persists_factory_providers_and_passthroughs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Full transaction: extensions.factory reaches the written settings.json."""
+    """Full transaction: extensions.factory providers/extraArgs/extraHeaders
+    reach the written settings.json."""
     config = tmp_path / "modfig.yaml"
     _write_registry(
         config,
@@ -528,9 +531,11 @@ def test_apply_persists_factory_wire_override_and_extra_args(
         "        enabled: true\n"
         "        extensions:\n"
         "          factory:\n"
-        "            provider: openai\n"
+        "            providers: [openai]\n"
         "            extraArgs:\n"
-        "              provider: openai\n"
+        "              max_price_per_1m: 8.0\n"
+        "            extraHeaders:\n"
+        "              X-Pin: static\n"
         "      plain:\n"
         "        displayName: Plain\n"
         "        contextWindow: 8192\n"
@@ -559,7 +564,12 @@ def test_apply_persists_factory_wire_override_and_extra_args(
 
     written = json.loads((tmp_path / ".factory" / "settings.json").read_text())
     by_model = {entry["model"]: entry for entry in written["customModels"]}
-    assert by_model["pinned"]["provider"] == "openai"
-    assert by_model["pinned"]["extraArgs"] == {"provider": "openai"}
+    assert by_model["pinned"]["provider"] == "generic-chat-completion-api"
+    assert by_model["pinned"]["extraArgs"] == {
+        "max_price_per_1m": 8.0,
+        "provider": ["openai"],
+    }
+    assert by_model["pinned"]["extraHeaders"] == {"X-Pin": "static"}
     assert by_model["plain"]["provider"] == "generic-chat-completion-api"
     assert "extraArgs" not in by_model["plain"]
+    assert "extraHeaders" not in by_model["plain"]

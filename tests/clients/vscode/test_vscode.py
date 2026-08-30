@@ -268,6 +268,76 @@ def test_current_code_projection_emits_reasoning_controls() -> None:
     ]
 
 
+def test_current_code_projection_emits_model_options_and_request_headers() -> None:
+    # VS Code's chatLanguageModels contract renders request passthroughs as
+    # modelOptions (body) and requestHeaders (headers).
+    model = ResolvedModel(
+        provider_key="router",
+        base_url="https://router.example/v1",
+        api_key_reference="env.ROUTER_KEY",
+        model="primary",
+        display_name="Primary",
+        max_output_tokens=1024,
+        effective_provider="generic-chat-completion-api",
+        no_image_support=False,
+        favourite=False,
+        factory_id="custom:primary--router",
+        vscode_id="primary",
+        vscode_extra_args={"temperature": 0.2},
+        vscode_extra_headers={"X-Custom": "static-value"},
+    )
+
+    projected = project_vscode_model_snapshots((model,), proven_runtime())
+
+    assert projected[0]["models"][0]["modelOptions"] == {"temperature": 0.2}
+    assert projected[0]["models"][0]["requestHeaders"] == {"X-Custom": "static-value"}
+
+
+def test_vscode_extension_passthroughs_reach_projected_settings() -> None:
+    # registry-driven: extensions.vscode.extraArgs/extraHeaders validate and
+    # flow through the plan into modelOptions/requestHeaders
+    registry = load_registry_text(
+        textwrap.dedent(
+            """\
+            specVersion: "0.1"
+            providers:
+              router:
+                name: Router
+                targets: [vscode]
+                baseUrl: https://router.example/v1
+                apiKey: env.ROUTER_KEY
+                provider: generic-chat-completion-api
+                enabled: true
+                models:
+                  primary:
+                    displayName: Primary
+                    contextWindow: 8192
+                    maxOutputTokens: 1024
+                    enabled: true
+                    extensions:
+                      vscode:
+                        id: primary
+                        extraArgs:
+                          temperature: 0.2
+                          nested:
+                            key: value
+                        extraHeaders:
+                          X-Custom: static-value
+            """
+        )
+    )
+    plan = plan_vscode(
+        registry,
+        [{"name": "Built-in", "settings": {}}],
+        owned_provider_ids=set(),
+        owned_model_ids={},
+        runtime=proven_runtime(),
+    )
+    router = next(provider for provider in plan.settings if provider["name"] == "Router")
+    assert router["models"][0]["modelOptions"] == {"temperature": 0.2, "nested": {"key": "value"}}
+    assert router["models"][0]["requestHeaders"] == {"X-Custom": "static-value"}
+
+
 def test_current_code_projection_sanitizes_provider_key_for_secret_ids() -> None:
     model = ResolvedModel(
         provider_key="Open.Router",

@@ -895,6 +895,7 @@ def _resolved_chatgpt_models(registry: Registry) -> tuple[ResolvedModel, ...]:
             chatgpt_default=provider.chatgpt_default(),
             provider_name=provider.name,
             context_window=model.context_window,
+            chatgpt_http_headers=provider.chatgpt_http_headers(),
         )
         for provider, model in registry.emitted_models("chatgpt")
     )
@@ -1007,16 +1008,20 @@ def _project_resolved_models(models: Sequence[ResolvedModel]) -> tuple[dict[str,
             )
         if not _safe_endpoint(model.base_url):
             raise ChatGPTConfigError(f"ChatGPT provider {provider_id!r} has an unsafe base URL")
-        projected.append(
-            {
-                "id": provider_id,
-                "name": model.provider_name or model.provider_key,
-                "base_url": model.base_url,
-                "env_key": variable,
-                "wire_api": "responses",
-                "models": models_by_provider[provider_id],
-            }
-        )
+        projected_entry: dict[str, Any] = {
+            "id": provider_id,
+            "name": model.provider_name or model.provider_key,
+            "base_url": model.base_url,
+            "env_key": variable,
+            "wire_api": "responses",
+            "models": models_by_provider[provider_id],
+        }
+        # ponytail: codex's model provider contract renders static request
+        # headers as http_headers; unlike Factory's extraArgs and VS Code's
+        # modelOptions it has no request-body passthrough.
+        if model.chatgpt_http_headers:
+            projected_entry["http_headers"] = model.chatgpt_http_headers
+        projected.append(projected_entry)
     return tuple(projected)
 
 

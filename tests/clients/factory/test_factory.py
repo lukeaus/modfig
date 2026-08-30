@@ -581,7 +581,7 @@ def test_build_models_emits_effective_provider_and_settings_shape_index_policy()
     )
 
 
-def test_build_models_emits_factory_wire_override_and_extra_args() -> None:
+def test_build_models_emits_factory_providers_and_passthroughs() -> None:
     registry = load_registry_text(
         textwrap.dedent(
             """\
@@ -603,9 +603,9 @@ def test_build_models_emits_factory_wire_override_and_extra_args() -> None:
                     enabled: true
                     extensions:
                       factory:
-                        provider: openai
+                        providers: [openai]
                         extraArgs:
-                          provider: openai
+                          max_price_per_1m: 8.0
                   gpt-5.5:
                     displayName: GPT-5.5 [Surplus]
                     contextWindow: 1048576
@@ -614,17 +614,25 @@ def test_build_models_emits_factory_wire_override_and_extra_args() -> None:
                     extensions:
                       factory:
                         extraArgs:
-                          provider: openai
+                          temperature: 0.2
+                        extraHeaders:
+                          X-Pin: static
             """
         )
     )
     models = build_models(registry, UnreadableSecrets(), {"customModels": []})
     by_model = {model["model"]: model for model in models}
-    # wire override wins for the pinned model; extraArgs-only keeps the effective wire
-    assert by_model["gpt-5.6-sol"]["provider"] == "openai"
-    assert by_model["gpt-5.6-sol"]["extraArgs"] == {"provider": "openai"}
+    # the wire provider stays untouched; the allow-list is merged into the
+    # request-body extraArgs as the Surplus provider pin array
+    assert by_model["gpt-5.6-sol"]["provider"] == "generic-chat-completion-api"
+    assert by_model["gpt-5.6-sol"]["extraArgs"] == {
+        "max_price_per_1m": 8.0,
+        "provider": ["openai"],
+    }
+    assert "extraHeaders" not in by_model["gpt-5.6-sol"]
     assert by_model["gpt-5.5"]["provider"] == "generic-chat-completion-api"
-    assert by_model["gpt-5.5"]["extraArgs"] == {"provider": "openai"}
+    assert by_model["gpt-5.5"]["extraArgs"] == {"temperature": 0.2}
+    assert by_model["gpt-5.5"]["extraHeaders"] == {"X-Pin": "static"}
 
 
 def test_build_models_does_not_read_secret_values() -> None:
