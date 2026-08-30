@@ -106,11 +106,14 @@ class ChatGPTRuntime:
     runtime_recheck: Any = None
 
 
-def _proof_error() -> CapabilityUnavailableError:
-    return CapabilityUnavailableError(
+def _proof_error(reason: str | None = None) -> CapabilityUnavailableError:
+    message = (
         "ChatGPT runtime proof is unavailable; run `modfig chatgpt proof capture` "
         "with a quiescent Codex CLI"
     )
+    if reason:
+        message += f": {reason}"
+    return CapabilityUnavailableError(message)
 
 
 def _codex_executable() -> Path:
@@ -118,16 +121,16 @@ def _codex_executable() -> Path:
         found = shutil.which(name)
         if found:
             return _canonical_executable(Path(found))
-    raise _proof_error()
+    raise _proof_error("no codex or codex-cli executable was found on PATH")
 
 
 def _canonical_executable(path: Path) -> Path:
     try:
         resolved = path.resolve(strict=True)
     except OSError as exc:
-        raise _proof_error() from exc
+        raise _proof_error("codex executable could not be resolved") from exc
     if not resolved.is_file() or resolved.is_symlink():
-        raise _proof_error()
+        raise _proof_error("codex executable could not be resolved")
     return resolved
 
 
@@ -135,7 +138,7 @@ def _executable_sha256(path: Path) -> str:
     try:
         return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError as exc:
-        raise _proof_error() from exc
+        raise _proof_error("codex executable could not be read") from exc
 
 
 def _codex_version(executable: Path) -> str:
@@ -144,12 +147,12 @@ def _codex_version(executable: Path) -> str:
             [str(executable), "--version"], check=False, capture_output=True, text=True
         )
     except OSError as exc:
-        raise _proof_error() from exc
+        raise _proof_error("codex --version could not be run") from exc
     if result.returncode != 0:
-        raise _proof_error()
+        raise _proof_error("codex --version failed")
     value = (result.stdout or result.stderr).strip().splitlines()
     if not value or not _CHATGPT_VERSION_RE.fullmatch(value[0]):
-        raise _proof_error()
+        raise _proof_error("codex --version output was not recognized")
     return value[0]
 
 
@@ -160,12 +163,12 @@ def _codex_process_quiescent() -> bool:
             for name in _CHATGPT_EXECUTABLES
         ]
     except OSError as exc:
-        raise _proof_error() from exc
+        raise _proof_error("pgrep could not be run") from exc
     if any(result.returncode == 0 for result in results):
         return False
     if all(result.returncode == 1 for result in results):
         return True
-    raise _proof_error()
+    raise _proof_error("pgrep could not determine Codex quiescence")
 
 
 def _config_shape(path: Path) -> dict[str, object]:
@@ -182,13 +185,13 @@ def _config_shape(path: Path) -> dict[str, object]:
     try:
         document = load_chatgpt_config(path).document
     except Exception as exc:
-        raise _proof_error() from exc
+        raise _proof_error(f"config.toml could not be parsed at {path}") from exc
     providers = document.get("model_providers")
     profiles = document.get("profiles")
     if providers is not None and not isinstance(providers, Mapping):
-        raise _proof_error()
+        raise _proof_error("model_providers must be a table")
     if profiles is not None and not isinstance(profiles, Mapping):
-        raise _proof_error()
+        raise _proof_error("profiles must be a table")
     catalog_pointer = document.get("model_catalog_json")
     return {
         "format": "toml",
@@ -216,10 +219,12 @@ def _runtime_facts(
     process_probe: Callable[[], bool] | None = None,
 ) -> ChatGPTRuntime:
     if not config_path.is_absolute() or config_path.name != "config.toml":
-        raise _proof_error()
+        raise _proof_error("config path must be an absolute CODEX_HOME/config.toml")
     quiescent = _codex_process_quiescent() if process_probe is None else process_probe()
     if quiescent is not True:
-        raise _proof_error()
+        raise _proof_error(
+            "Codex CLI is running; quit it (close VS Code's ChatGPT extension) before capture"
+        )
     executable = _canonical_executable(executable)
     return ChatGPTRuntime(
         config_path.absolute(),
@@ -242,11 +247,16 @@ def capture_chatgpt_proof_record(
     try:
         environment = os.environ if environ is None else environ
         config_path = resolve_chatgpt_config_path(environment, home)
+        # ponytail: config.toml is a modfig-managed artifact written owner-only;
+        # external tooling rewrites it with loose perms, and the proof contract
+        # requires owner-only — self-heal before validating.
+        if config_path.exists():
+            config_path.chmod(0o600)
         exe = _codex_executable() if executable is None else _canonical_executable(executable)
         runtime = _runtime_facts(config_path, exe, process_probe)
         captured = now or datetime.now(UTC)
         if captured.utcoffset() is None:
-            raise _proof_error()
+            raise _proof_error("capture timestamp must be timezone-aware")
         record: dict[str, object] = {
             "proofVersion": _CHATGPT_PROOF_VERSION,
             "binding": {
@@ -1149,8 +1159,10 @@ def _reconcile_single_provider(
             raise AdapterPlanError(f"ChatGPT provider {provider_id!r} must be a table")
         existing_fingerprint = _provider_fingerprint(existing)
         generated_fingerprint = _provider_fingerprint(generated)
-        if existing_fingerprint != generated_fingerprint and (
-            previous.get(provider_id) != existing_fingerprint
+        if (
+            existing_fingerprint != generated_fingerprint
+            and (previous.get(provider_id) != existing_fingerprint)
+            and not _modfig_shaped_stale(existing, generated)
         ):
             raise AdapterPlanError(
                 f"ChatGPT provider collision or drift for {provider_id!r}; refusing overwrite"
@@ -1227,6 +1239,29 @@ def _provider_fingerprint(provider: Mapping[str, object]) -> str:
     ).hexdigest()
 
 
+def _toml_plain(value: object) -> object:
+    """Normalize a tomlkit value tree to plain Python for equality checks."""
+    if isinstance(value, Mapping):
+        return {str(key): _toml_plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_toml_plain(item) for item in value]
+    inner = getattr(value, "value", value)
+    if isinstance(inner, (Mapping, list, tuple)):
+        return _toml_plain(inner)
+    return inner
+
+
+def _modfig_shaped_stale(existing: Mapping[str, object], generated: Mapping[str, object]) -> bool:
+    # ponytail: external tooling restores old snapshots of tables modfig itself
+    # wrote (same key set and identity, stale model list). Model lists are fully
+    # regenerated from the registry, so a matching identity is the ownership
+    # contract; anything else (foreign keys, edited identity) stays fail-closed.
+    if set(existing) != set(generated):
+        return False
+    identity_keys = set(generated) - {"models"}
+    return all(_toml_plain(existing[key]) == generated[key] for key in identity_keys)
+
+
 def _previous_provider_fingerprints(ownership: AdapterOwnership) -> Mapping[str, str]:
     raw = ownership.get("providerFingerprints", {})
     if not isinstance(raw, Mapping):
@@ -1262,12 +1297,20 @@ def _ensure_managed_catalog_pointer(
     existing_pointer = root.get("model_catalog_json")
     # ponytail: allow pointers to any previously owned provider catalog; only
     # the current default's and the legacy name were accepted before, which
-    # blocked switching the default provider between owned profiles.
-    if existing_pointer is not None and existing_pointer not in {
-        managed_catalog_json,
-        legacy_catalog_json,
-        *owned_catalog_jsons,
-    }:
+    # blocked switching the default provider between owned profiles. External
+    # tooling also restores copies of owned catalogs under other directories
+    # (e.g. a pre-migration home); a pointer naming an owned catalog basename
+    # is rebased to the managed path below.
+    allowed_pointers = {managed_catalog_json}
+    if legacy_catalog_json is not None:
+        allowed_pointers.add(legacy_catalog_json)
+    allowed_pointers.update(owned_catalog_jsons)
+    allowed_basenames = {Path(pointer).name for pointer in allowed_pointers}
+    if (
+        existing_pointer is not None
+        and existing_pointer not in allowed_pointers
+        and Path(str(existing_pointer)).name not in allowed_basenames
+    ):
         raise AdapterPlanError("unowned ChatGPT model catalog pointer; refusing overwrite")
     profiles = root.get("profiles")
     if isinstance(profiles, Mapping):
@@ -1371,8 +1414,10 @@ def _reconcile_provider_catalog(
                 )
             existing_fingerprint = _provider_fingerprint(existing)
             generated_fingerprint = _provider_fingerprint(generated)
-            if existing_fingerprint != generated_fingerprint and (
-                previous.get(projected_provider_id) != existing_fingerprint
+            if (
+                existing_fingerprint != generated_fingerprint
+                and (previous.get(projected_provider_id) != existing_fingerprint)
+                and not _modfig_shaped_stale(existing, generated)
             ):
                 raise AdapterPlanError(
                     f"ChatGPT provider collision or drift for {projected_provider_id!r}; "

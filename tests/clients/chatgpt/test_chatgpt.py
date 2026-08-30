@@ -384,6 +384,134 @@ name = "Not Router"
 
 
 @POSIX_SECURE_IO
+def test_chatgpt_proof_capture_names_running_codex_reason(tmp_path: Path) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+
+    with pytest.raises(CapabilityUnavailableError, match="Codex CLI is running"):
+        capture_chatgpt_proof_record(
+            environ={"CODEX_HOME": str(codex_home)},
+            home=tmp_path,
+            executable=executable,
+            process_probe=lambda: False,
+        )
+
+
+@POSIX_SECURE_IO
+def test_chatgpt_proof_capture_self_heals_config_permissions(tmp_path: Path) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+    config.chmod(0o644)
+
+    capture_chatgpt_proof_record(
+        environ={"CODEX_HOME": str(codex_home)},
+        home=tmp_path,
+        executable=executable,
+        process_probe=lambda: True,
+    )
+
+    assert (config.stat().st_mode & 0o777) == 0o600
+
+
+@POSIX_SECURE_IO
+def test_chatgpt_adapter_allows_stale_owned_provider_snapshot(tmp_path: Path) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+    source = (
+        b'model = "selected-model"\nmodel_provider = "foreign"\n'
+        b"[model_providers.modfig-router]\n"
+        b'name = "Router"\nbase_url = "https://router.example/v1"\n'
+        b'env_key = "ROUTER_KEY"\nwire_api = "responses"\nmodels = ["old-model"]\n'
+    )
+    write_config(config, source)
+    proof = RuntimeProof(
+        {},
+        "",
+        provenance=ChatGPTRuntime(
+            config,
+            codex_home,
+            executable,
+            "sha256:" + "a" * 64,
+            "codex 1.2.3",
+        ),
+    )
+
+    plan = adapter.plan(
+        AdapterPlanContext("chatgpt", "core", models=(_resolved_chatgpt_model(),)),
+        proof,
+        _plan_snapshots(source),
+        {},
+    )
+
+    planned = plan.artifacts[0].planned
+    assert isinstance(planned, bytes)
+    assert b'models = ["enabled-model"]' in planned
+
+
+@POSIX_SECURE_IO
+def test_chatgpt_adapter_rejects_stale_identity_drift(tmp_path: Path) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+    source = (
+        b'model = "selected-model"\nmodel_provider = "foreign"\n'
+        b"[model_providers.modfig-router]\n"
+        b'name = "Router"\nbase_url = "https://evil.example/v1"\n'
+        b'env_key = "ROUTER_KEY"\nwire_api = "responses"\nmodels = ["enabled-model"]\n'
+    )
+    write_config(config, source)
+    proof = RuntimeProof(
+        {},
+        "",
+        provenance=ChatGPTRuntime(
+            config,
+            codex_home,
+            executable,
+            "sha256:" + "a" * 64,
+            "codex 1.2.3",
+        ),
+    )
+
+    with pytest.raises(AdapterPlanError, match="collision or drift"):
+        adapter.plan(
+            AdapterPlanContext("chatgpt", "core", models=(_resolved_chatgpt_model(),)),
+            proof,
+            _plan_snapshots(source),
+            {},
+        )
+
+
+@POSIX_SECURE_IO
+def test_chatgpt_adapter_rebases_owned_catalog_pointer_by_basename(
+    tmp_path: Path,
+) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+    proof = RuntimeProof(
+        {},
+        "",
+        provenance=ChatGPTRuntime(
+            config,
+            codex_home,
+            executable,
+            "sha256:" + "a" * 64,
+            "codex 1.2.3",
+        ),
+    )
+
+    plan = adapter.plan(
+        AdapterPlanContext("chatgpt", "core", models=(_resolved_chatgpt_model(),)),
+        proof,
+        _plan_snapshots(
+            chatgpt_config(),
+            base=(f'model_catalog_json = "{tmp_path / "modfig-router-catalog.json"}"\n').encode(),
+        ),
+        {},
+    )
+
+    planned_base = plan.artifacts[2].planned
+    assert isinstance(planned_base, bytes)
+    assert (
+        f'model_catalog_json = "{codex_home / "modfig-router-catalog.json"}"\n'.encode()
+        in planned_base
+    )
+
+
+@POSIX_SECURE_IO
 def test_chatgpt_adapter_updates_owned_provider_when_catalog_changes(tmp_path: Path) -> None:
     codex_home, config, executable = _codex_fixture(tmp_path)
     source = exact_provider_config()
