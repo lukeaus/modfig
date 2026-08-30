@@ -234,6 +234,11 @@ def test_factory_builtin_adapter_projects_session_and_mission_scalars() -> None:
                 "workerReasoningEffort": "low",
                 "validationWorkerModel": FactoryNativeReference("factory-native-validator"),
             },
+            "subagent": {
+                "lightModel": ModelReference("router", "primary"),
+                "mediumModel": ModelReference("router", "primary"),
+                "heavyModel": FactoryNativeReference("factory-native-heavy"),
+            },
         },
         (model,),
         lambda reference: model,
@@ -265,6 +270,11 @@ def test_factory_builtin_adapter_projects_session_and_mission_scalars() -> None:
         "workerReasoningEffort": "low",
         "validationWorkerModel": "factory-native-validator",
     }
+    assert settings["subagentModelSettings"] == {
+        "lightModel": "custom:primary--router",
+        "mediumModel": "custom:primary--router",
+        "heavyModel": "factory-native-heavy",
+    }
     assert {(field["logicalKey"], field["jsonPointer"]) for field in plan.ownership["fields"]} == {
         ("session.model", "/session/model"),
         ("session.reasoningEffort", "/session/reasoning"),
@@ -289,6 +299,9 @@ def test_factory_builtin_adapter_projects_session_and_mission_scalars() -> None:
             "mission.defaultValidationWorkerModel",
             "/missionModelSettings/validationWorkerModel",
         ),
+        ("subagent.lightModel", "/subagentModelSettings/lightModel"),
+        ("subagent.mediumModel", "/subagentModelSettings/mediumModel"),
+        ("subagent.heavyModel", "/subagentModelSettings/heavyModel"),
     }
 
 
