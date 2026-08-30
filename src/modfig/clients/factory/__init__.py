@@ -808,7 +808,18 @@ def probe_factory_responses(
     preflight. Missing secret, transport error, timeout, non-200, or unusable
     output raises ``AppError`` naming the provider/model and failure class.
     Credentials and response bodies are never included in error text.
+
+    ``MODFIG_PROBE_TIMEOUT`` overrides the per-request timeout (seconds), for
+    providers whose cold starts exceed the default.
     """
+    configured = environ.get("MODFIG_PROBE_TIMEOUT")
+    if configured is not None:
+        try:
+            timeout = float(configured)
+        except ValueError as exc:
+            raise AppError("MODFIG_PROBE_TIMEOUT must be a positive number of seconds") from exc
+        if timeout <= 0:
+            raise AppError("MODFIG_PROBE_TIMEOUT must be a positive number of seconds")
     targets = tuple(
         (provider, model)
         for provider, model in registry.emitted_models("factory")
