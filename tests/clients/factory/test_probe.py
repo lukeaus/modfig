@@ -254,6 +254,26 @@ def test_probe_rejects_empty_or_unparsable_output(body: bytes) -> None:
 # --- VAL-PROBE-004: failures are safe and identifiable, no leaks ---
 
 
+def test_probe_rejects_invalid_timeout_env() -> None:
+    registry = load_registry_text(_openai_factory_registry("https://router.example/v1"))
+
+    with pytest.raises(AppError, match="MODFIG_PROBE_TIMEOUT"):
+        probe_factory_responses(
+            registry,
+            {"ROUTER_KEY": KEY_SENTINEL, "MODFIG_PROBE_TIMEOUT": "soon"},
+        )
+
+
+def test_probe_rejects_non_positive_timeout_env() -> None:
+    registry = load_registry_text(_openai_factory_registry("https://router.example/v1"))
+
+    with pytest.raises(AppError, match="MODFIG_PROBE_TIMEOUT"):
+        probe_factory_responses(
+            registry,
+            {"ROUTER_KEY": KEY_SENTINEL, "MODFIG_PROBE_TIMEOUT": "0"},
+        )
+
+
 def test_probe_missing_secret_fails_closed_with_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     registry = load_registry_text(_openai_factory_registry("https://router.example/v1"))
 
