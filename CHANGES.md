@@ -15,6 +15,8 @@
   and recovery.
 - Added live Responses preflight for Factory models declared with
   `provider: openai`.
+- Raised the default Factory Responses probe timeout to 120 seconds
+  (`MODFIG_PROBE_TIMEOUT` overrides it per-request).
 - Split maintained documentation into target guides, CLI reference, runtime
   support, architecture, and development documentation.
 
