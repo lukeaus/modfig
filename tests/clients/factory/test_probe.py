@@ -227,6 +227,51 @@ def test_probe_probes_only_openai_factory_models_at_responses() -> None:
     assert generic_server.requests == []
 
 
+# --- VAL-PROBE-002b: factory wire override extends probe coverage ---
+
+
+def test_probe_honors_factory_wire_override_but_not_extra_args_only() -> None:
+    with _stub_server() as server:
+        url = f"http://127.0.0.1:{server.server_address[1]}/v1"
+        registry = load_registry_text(
+            'specVersion: "0.1"\n'
+            "providers:\n"
+            "  router:\n"
+            "    name: Router\n"
+            "    targets: [factory]\n"
+            f"    baseUrl: {url}\n"
+            "    apiKey: env.ROUTER_KEY\n"
+            "    provider: generic-chat-completion-api\n"
+            "    enabled: true\n"
+            "    models:\n"
+            "      pinned:\n"
+            "        displayName: Pinned\n"
+            "        contextWindow: 8192\n"
+            "        maxOutputTokens: 1024\n"
+            "        enabled: true\n"
+            "        extensions:\n"
+            "          factory:\n"
+            "            provider: openai\n"
+            "            extraArgs:\n"
+            "              provider: openai\n"
+            "      args-only:\n"
+            "        displayName: Args Only\n"
+            "        contextWindow: 8192\n"
+            "        maxOutputTokens: 1024\n"
+            "        enabled: true\n"
+            "        extensions:\n"
+            "          factory:\n"
+            "            extraArgs:\n"
+            "              provider: openai\n"
+        )
+
+        probed = probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL})
+
+    assert probed == (("router", "pinned"),)
+    assert len(server.requests) == 1
+    assert server.requests[0]["path"] == "/v1/responses"
+
+
 # --- VAL-PROBE-003: probe success requires usable output ---
 
 
@@ -456,3 +501,65 @@ def test_apply_aborts_before_mutation_when_probe_fails(
 
     assert not journal.exists()
     assert not backups.exists() or list(backups.iterdir()) == []
+
+
+@POSIX_SECURE_IO
+def test_apply_persists_factory_wire_override_and_extra_args(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Full transaction: extensions.factory reaches the written settings.json."""
+    config = tmp_path / "modfig.yaml"
+    _write_registry(
+        config,
+        'specVersion: "0.1"\n'
+        "providers:\n"
+        "  surplus:\n"
+        "    name: Surplus\n"
+        "    targets: [factory]\n"
+        "    baseUrl: https://api.surplusintelligence.ai/v1\n"
+        "    apiKey: env.SURPLUS_KEY\n"
+        "    provider: generic-chat-completion-api\n"
+        "    enabled: true\n"
+        "    models:\n"
+        "      pinned:\n"
+        "        displayName: Pinned\n"
+        "        contextWindow: 8192\n"
+        "        maxOutputTokens: 1024\n"
+        "        enabled: true\n"
+        "        extensions:\n"
+        "          factory:\n"
+        "            provider: openai\n"
+        "            extraArgs:\n"
+        "              provider: openai\n"
+        "      plain:\n"
+        "        displayName: Plain\n"
+        "        contextWindow: 8192\n"
+        "        maxOutputTokens: 1024\n"
+        "        enabled: true\n",
+    )
+    manifest = tmp_path / "manifest.json"
+    journal = tmp_path / "pending.json"
+    backups = tmp_path / "backups"
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(app, "resolve_manifest_path", lambda *_: manifest)
+    monkeypatch.setattr(app.factory, "probe_factory_responses", lambda *args, **kwargs: ())
+    settings_path = tmp_path / ".factory" / "settings.json"
+    settings_path.parent.mkdir()
+    settings_path.write_text('{"customModels": [], "modelFavorites": []}', encoding="utf-8")
+    settings_path.chmod(0o600)
+
+    app._apply_transaction(
+        str(config),
+        "factory",
+        True,
+        {},
+        journal_path=journal,
+        backup_root=backups,
+    )
+
+    written = json.loads((tmp_path / ".factory" / "settings.json").read_text())
+    by_model = {entry["model"]: entry for entry in written["customModels"]}
+    assert by_model["pinned"]["provider"] == "openai"
+    assert by_model["pinned"]["extraArgs"] == {"provider": "openai"}
+    assert by_model["plain"]["provider"] == "generic-chat-completion-api"
+    assert "extraArgs" not in by_model["plain"]

@@ -8,7 +8,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from types import MappingProxyType
-from typing import Protocol, TypeAlias, runtime_checkable
+from typing import Any, Protocol, TypeAlias, runtime_checkable
 
 from .adapter_routes import AdapterRoute, AdapterRouteError
 from .components import Component
@@ -130,6 +130,8 @@ class ResolvedModel:
     chatgpt_reasoning_levels: tuple[str, ...] = ()
     chatgpt_default: bool = False
     context_window: int | None = None
+    factory_provider: str | None = None
+    factory_extra_args: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)

@@ -656,10 +656,11 @@ def test_default_chatgpt_catalog_id_must_be_safe() -> None:
         load_registry_text(content)
 
 
-def test_factory_extension_namespace_is_rejected() -> None:
-    # VAL-CATALOG-004: the model-level extensions.factory namespace is removed;
-    # stored Factory IDs cannot be declared. A well-formed stored id (accepted by
-    # the old validator) must now be rejected as an unknown field.
+def test_factory_extension_rejects_unknown_fields() -> None:
+    # VAL-CATALOG-004: the model-level extensions.factory namespace is a narrow
+    # pass-through for per-model Factory app settings {provider, extraArgs};
+    # stored Factory IDs are still always computed, so declaring one (accepted
+    # by the old validator) must be rejected as an unknown field.
     content = _probe_registry(
         provider_key="router",
         name="Router",
@@ -668,7 +669,60 @@ def test_factory_extension_namespace_is_rejected() -> None:
         provider_protocol="openai",
         model_ext="        extensions:\n          factory:\n            id: custom:model--router\n",
     )
-    with pytest.raises(RegistryValidationError, match="unknown field.*'factory'"):
+    with pytest.raises(RegistryValidationError, match="contains unknown field 'id'"):
+        load_registry_text(content)
+
+
+def test_factory_extension_accepts_wire_provider_and_extra_args() -> None:
+    # VAL-CATALOG-004: extensions.factory carries a Factory-target wire provider
+    # override and a request-body extraArgs passthrough (e.g. Surplus pinning).
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[factory]",
+        enabled="true",
+        provider_protocol="generic-chat-completion-api",
+        model_ext=(
+            "        extensions:\n"
+            "          factory:\n"
+            "            provider: openai\n"
+            "            extraArgs:\n"
+            "              provider: openai\n"
+            "              max_price_per_1m: 8.0\n"
+        ),
+    )
+    registry = load_registry_text(content)
+    model = registry.providers[0].models[0]
+    assert model.factory_provider() == "openai"
+    assert model.factory_extra_args() == {"provider": "openai", "max_price_per_1m": 8.0}
+
+
+def test_factory_extension_rejects_invalid_wire_provider() -> None:
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[factory]",
+        enabled="true",
+        model_ext="        extensions:\n          factory:\n            provider: openrouter\n",
+    )
+    with pytest.raises(RegistryValidationError, match="provider must be one of"):
+        load_registry_text(content)
+
+
+def test_factory_extension_rejects_non_json_extra_args() -> None:
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[factory]",
+        enabled="true",
+        model_ext=(
+            "        extensions:\n"
+            "          factory:\n"
+            "            extraArgs:\n"
+            "              price: .nan\n"
+        ),
+    )
+    with pytest.raises(RegistryValidationError, match="JSON-serializable"):
         load_registry_text(content)
 
 

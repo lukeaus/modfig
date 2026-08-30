@@ -658,7 +658,9 @@ def build_model_snapshots(
         }
         if shape.requires_index:
             projected["index"] = start_index + position
-        projected["provider"] = model.effective_provider
+        projected["provider"] = model.factory_provider or model.effective_provider
+        if model.factory_extra_args:
+            projected["extraArgs"] = model.factory_extra_args
         models.append(projected)
     return tuple(models)
 
@@ -744,6 +746,8 @@ def _registry_model_snapshots(registry: Registry) -> tuple[ResolvedModel, ...]:
             max_input_tokens=model.max_input_tokens,
             tool_calling=model.tool_calling,
             provider_name=provider.name,
+            factory_provider=model.factory_provider(),
+            factory_extra_args=model.factory_extra_args(),
         )
         for provider, model in registry.emitted_models("factory")
     )
@@ -823,7 +827,7 @@ def probe_factory_responses(
     targets = tuple(
         (provider, model)
         for provider, model in registry.emitted_models("factory")
-        if model.effective_provider == "openai"
+        if model.effective_provider == "openai" or model.factory_provider() == "openai"
     )
     if not targets:
         return ()

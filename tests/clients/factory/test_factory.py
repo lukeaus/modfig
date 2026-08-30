@@ -581,6 +581,52 @@ def test_build_models_emits_effective_provider_and_settings_shape_index_policy()
     )
 
 
+def test_build_models_emits_factory_wire_override_and_extra_args() -> None:
+    registry = load_registry_text(
+        textwrap.dedent(
+            """\
+            specVersion: "0.1"
+            providers:
+              surplus:
+                name: Surplus
+                targets: [factory]
+                baseUrl: https://api.surplusintelligence.ai/v1
+                apiKey: env.SURPLUS_KEY
+                provider: generic-chat-completion-api
+                enabled: true
+                models:
+                  gpt-5.6-sol:
+                    displayName: GPT-5.6 Sol [Surplus]
+                    contextWindow: 1048576
+                    maxOutputTokens: 128000
+                    maxInputTokens: 920576
+                    enabled: true
+                    extensions:
+                      factory:
+                        provider: openai
+                        extraArgs:
+                          provider: openai
+                  gpt-5.5:
+                    displayName: GPT-5.5 [Surplus]
+                    contextWindow: 1048576
+                    maxOutputTokens: 128000
+                    enabled: true
+                    extensions:
+                      factory:
+                        extraArgs:
+                          provider: openai
+            """
+        )
+    )
+    models = build_models(registry, UnreadableSecrets(), {"customModels": []})
+    by_model = {model["model"]: model for model in models}
+    # wire override wins for the pinned model; extraArgs-only keeps the effective wire
+    assert by_model["gpt-5.6-sol"]["provider"] == "openai"
+    assert by_model["gpt-5.6-sol"]["extraArgs"] == {"provider": "openai"}
+    assert by_model["gpt-5.5"]["provider"] == "generic-chat-completion-api"
+    assert by_model["gpt-5.5"]["extraArgs"] == {"provider": "openai"}
+
+
 def test_build_models_does_not_read_secret_values() -> None:
     registry = load_registry_text(REGISTRY)
     sentinel = "do-not-leak-sentinel"

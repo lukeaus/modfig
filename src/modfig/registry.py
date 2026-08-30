@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -109,9 +110,25 @@ class Model:
     vscode_default_reasoning_level: str | None = None
 
     def factory_id(self, provider_key: str) -> str:
-        # ponytail: IDs are always derived from the model/provider keys; the
-        # model-level extensions.factory namespace was removed (VAL-CATALOG-004).
+        # ponytail: IDs are always derived from the model/provider keys;
+        # extensions.factory carries per-model Factory settings, not IDs.
         return f"custom:{slugify(self.model)}--{provider_key}"
+
+    def factory_provider(self) -> str | None:
+        """Factory-target wire provider override from extensions.factory."""
+        factory_extension = self.extensions.get("factory")
+        if isinstance(factory_extension, Mapping) and "provider" in factory_extension:
+            provider = factory_extension["provider"]
+            return provider if isinstance(provider, str) else None
+        return None
+
+    def factory_extra_args(self) -> Mapping[str, Any] | None:
+        """Request-body extraArgs passthrough from extensions.factory (e.g. pins)."""
+        factory_extension = self.extensions.get("factory")
+        if isinstance(factory_extension, Mapping) and "extraArgs" in factory_extension:
+            extra_args = factory_extension["extraArgs"]
+            return extra_args if isinstance(extra_args, Mapping) else None
+        return None
 
     def vscode_id(self) -> str:
         vscode_extension = self.extensions.get("vscode")
@@ -693,9 +710,36 @@ def _validate_provider_extensions(
 def _validate_model_extensions(
     extensions: Mapping[str, Any], location: str, issues: list[str]
 ) -> None:
-    # ponytail: the model-level extensions.factory namespace is removed; declaring
-    # it now surfaces as an unknown field (VAL-CATALOG-004).
-    _reject_unknown_fields(extensions, {"vscode", "chatgpt"}, f"{location}.extensions", issues)
+    # ponytail: the model-level extensions.factory namespace is a thin, validated
+    # pass-through for per-model Factory app settings (wire provider override and
+    # request-body extraArgs, e.g. Surplus provider pinning); anything else stays
+    # rejected as an unknown field (VAL-CATALOG-004).
+    _reject_unknown_fields(
+        extensions, {"vscode", "chatgpt", "factory"}, f"{location}.extensions", issues
+    )
+    if "factory" in extensions:
+        factory_location = f"{location}.extensions.factory"
+        factory_mapping = _mapping(extensions["factory"], factory_location, issues)
+        _reject_unknown_fields(factory_mapping, {"provider", "extraArgs"}, factory_location, issues)
+        if "provider" in factory_mapping:
+            factory_provider = factory_mapping["provider"]
+            if not isinstance(factory_provider, str) or factory_provider not in PROVIDER_PROTOCOLS:
+                issues.append(
+                    f"{factory_location}.provider must be one of {sorted(PROVIDER_PROTOCOLS)}"
+                )
+        if "extraArgs" in factory_mapping:
+            extra_args = factory_mapping["extraArgs"]
+            if not isinstance(extra_args, Mapping) or not extra_args:
+                issues.append(f"{factory_location}.extraArgs must be a non-empty mapping")
+            else:
+                for arg_key, arg_value in extra_args.items():
+                    arg_location = f"{factory_location}.extraArgs.{arg_key}"
+                    if not isinstance(arg_key, str) or not arg_key:
+                        issues.append(f"{arg_location} key must be a non-empty string")
+                    try:
+                        json.dumps(arg_value, allow_nan=False)
+                    except (TypeError, ValueError):
+                        issues.append(f"{arg_location} must be JSON-serializable")
     if "vscode" in extensions:
         vscode_location = f"{location}.extensions.vscode"
         vscode_mapping = _mapping(extensions["vscode"], vscode_location, issues)
