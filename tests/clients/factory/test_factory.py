@@ -581,6 +581,72 @@ def test_build_models_emits_effective_provider_and_settings_shape_index_policy()
     )
 
 
+def test_build_models_emits_factory_providers_and_passthroughs() -> None:
+    registry = load_registry_text(
+        textwrap.dedent(
+            """\
+            specVersion: "0.1"
+            providers:
+              surplus:
+                name: Surplus
+                targets: [factory]
+                baseUrl: https://api.surplusintelligence.ai/v1
+                apiKey: env.SURPLUS_KEY
+                provider: generic-chat-completion-api
+                enabled: true
+                models:
+                  gpt-5.6-sol:
+                    displayName: GPT-5.6 Sol [Surplus]
+                    contextWindow: 1048576
+                    maxOutputTokens: 128000
+                    maxInputTokens: 920576
+                    enabled: true
+                    extensions:
+                      factory:
+                        providers: [openai]
+                        extraArgs:
+                          max_price_per_1m: 8.0
+                  gpt-5.5:
+                    displayName: GPT-5.5 [Surplus]
+                    contextWindow: 1048576
+                    maxOutputTokens: 128000
+                    enabled: true
+                    extensions:
+                      factory:
+                        extraArgs:
+                          temperature: 0.2
+                        extraHeaders:
+                          X-Pin: static
+                  gpt-5.4:
+                    displayName: GPT-5.4 [Surplus]
+                    contextWindow: 1048576
+                    maxOutputTokens: 128000
+                    enabled: true
+                    extensions:
+                      factory:
+                        extraArgs: [1, two, {three: null}]
+                        extraHeaders: static
+            """
+        )
+    )
+    models = build_models(registry, UnreadableSecrets(), {"customModels": []})
+    by_model = {model["model"]: model for model in models}
+    # the wire provider stays untouched; the allow-list is merged into the
+    # request-body extraArgs as the Surplus provider pin array
+    assert by_model["gpt-5.6-sol"]["provider"] == "generic-chat-completion-api"
+    assert by_model["gpt-5.6-sol"]["extraArgs"] == {
+        "max_price_per_1m": 8.0,
+        "provider": ["openai"],
+    }
+    assert "extraHeaders" not in by_model["gpt-5.6-sol"]
+    assert by_model["gpt-5.5"]["provider"] == "generic-chat-completion-api"
+    assert by_model["gpt-5.5"]["extraArgs"] == {"temperature": 0.2}
+    assert by_model["gpt-5.5"]["extraHeaders"] == {"X-Pin": "static"}
+    # non-object passthrough shapes are emitted verbatim
+    assert by_model["gpt-5.4"]["extraArgs"] == [1, "two", {"three": None}]
+    assert by_model["gpt-5.4"]["extraHeaders"] == "static"
+
+
 def test_build_models_does_not_read_secret_values() -> None:
     registry = load_registry_text(REGISTRY)
     sentinel = "do-not-leak-sentinel"

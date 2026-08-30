@@ -1143,6 +1143,41 @@ def test_project_chatgpt_providers_allows_factory_generic_with_responses_opt_in(
     )
 
 
+def test_project_chatgpt_providers_emits_http_headers_passthrough() -> None:
+    # codex's provider contract renders static request headers as
+    # http_headers from extensions.chatgpt.httpHeaders
+    registry = load_registry_text(
+        textwrap.dedent(
+            """\
+            specVersion: "0.1"
+            providers:
+              router:
+                name: Router
+                targets: [chatgpt]
+                baseUrl: https://router.example/v1
+                apiKey: env.ROUTER_KEY
+                provider: openai
+                enabled: true
+                extensions:
+                  chatgpt:
+                    default: true
+                    httpHeaders:
+                      X-Custom: static-value
+                models:
+                  enabled-model:
+                    displayName: Enabled Model
+                    contextWindow: 8192
+                    maxOutputTokens: 1024
+                    enabled: true
+        """
+        )
+    )
+
+    providers = project_chatgpt_providers(registry, {"ROUTER_KEY": "present"})
+
+    assert providers[0]["http_headers"] == {"X-Custom": "static-value"}
+
+
 def test_project_chatgpt_providers_does_not_read_environment() -> None:
     providers = project_chatgpt_providers(
         load_registry_text(registry_text()), UnreadableEnvironment()

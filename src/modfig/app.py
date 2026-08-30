@@ -141,6 +141,11 @@ def adapter_plan_context(
             chatgpt_reasoning_levels=model.chatgpt_reasoning_levels,
             chatgpt_default=provider.chatgpt_default(),
             context_window=model.context_window,
+            factory_extra_args=model.factory_extra_args(),
+            factory_extra_headers=model.factory_extra_headers(),
+            vscode_extra_args=model.vscode_extra_args(),
+            vscode_extra_headers=model.vscode_extra_headers(),
+            chatgpt_http_headers=provider.chatgpt_http_headers(),
         )
         for provider, model in registry.emitted_models(logical_client)
     )

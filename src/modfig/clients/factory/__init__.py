@@ -659,6 +659,10 @@ def build_model_snapshots(
         if shape.requires_index:
             projected["index"] = start_index + position
         projected["provider"] = model.effective_provider
+        if model.factory_extra_args is not None:
+            projected["extraArgs"] = model.factory_extra_args
+        if model.factory_extra_headers is not None:
+            projected["extraHeaders"] = model.factory_extra_headers
         models.append(projected)
     return tuple(models)
 
@@ -744,6 +748,11 @@ def _registry_model_snapshots(registry: Registry) -> tuple[ResolvedModel, ...]:
             max_input_tokens=model.max_input_tokens,
             tool_calling=model.tool_calling,
             provider_name=provider.name,
+            factory_extra_args=model.factory_extra_args(),
+            factory_extra_headers=model.factory_extra_headers(),
+            vscode_extra_args=model.vscode_extra_args(),
+            vscode_extra_headers=model.vscode_extra_headers(),
+            chatgpt_http_headers=provider.chatgpt_http_headers(),
         )
         for provider, model in registry.emitted_models("factory")
     )

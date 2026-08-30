@@ -656,10 +656,11 @@ def test_default_chatgpt_catalog_id_must_be_safe() -> None:
         load_registry_text(content)
 
 
-def test_factory_extension_namespace_is_rejected() -> None:
-    # VAL-CATALOG-004: the model-level extensions.factory namespace is removed;
-    # stored Factory IDs cannot be declared. A well-formed stored id (accepted by
-    # the old validator) must now be rejected as an unknown field.
+def test_factory_extension_rejects_unknown_fields() -> None:
+    # VAL-CATALOG-004: the model-level extensions.factory namespace is a narrow
+    # pass-through for {providers, extraArgs, extraHeaders}; stored Factory IDs
+    # are still always computed, so declaring one must be rejected as an
+    # unknown field.
     content = _probe_registry(
         provider_key="router",
         name="Router",
@@ -668,7 +669,215 @@ def test_factory_extension_namespace_is_rejected() -> None:
         provider_protocol="openai",
         model_ext="        extensions:\n          factory:\n            id: custom:model--router\n",
     )
-    with pytest.raises(RegistryValidationError, match="unknown field.*'factory'"):
+    with pytest.raises(RegistryValidationError, match="contains unknown field 'id'"):
+        load_registry_text(content)
+
+
+def test_factory_extension_accepts_providers_and_passthroughs() -> None:
+    # VAL-PIN-001: extensions.factory carries the Surplus provider-pinning
+    # allow-list (providers, merged as a request-body provider array) plus
+    # unvalidated extraArgs/extraHeaders passthroughs.
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[factory]",
+        enabled="true",
+        provider_protocol="generic-chat-completion-api",
+        model_ext=(
+            "        extensions:\n"
+            "          factory:\n"
+            "            providers: [openai]\n"
+            "            extraArgs:\n"
+            "              max_price_per_1m: 8.0\n"
+            "              pinned: true\n"
+            "              nested:\n"
+            "                key: value\n"
+            "            extraHeaders:\n"
+            "              X-Pin: static\n"
+        ),
+    )
+    registry = load_registry_text(content)
+    model = registry.providers[0].models[0]
+    assert model.factory_providers() == ("openai",)
+    assert model.factory_extra_args() == {
+        "provider": ["openai"],
+        "max_price_per_1m": 8.0,
+        "pinned": True,
+        "nested": {"key": "value"},
+    }
+    assert model.factory_extra_headers() == {"X-Pin": "static"}
+
+
+def test_factory_extension_accepts_passthroughs_without_providers() -> None:
+    # VAL-PIN-001: extraArgs-only is valid; the provider key is only merged in
+    # when the providers allow-list is present.
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[factory]",
+        enabled="true",
+        model_ext=(
+            "        extensions:\n"
+            "          factory:\n"
+            "            extraArgs:\n"
+            "              temperature: 0.2\n"
+        ),
+    )
+    model = load_registry_text(content).providers[0].models[0]
+    assert model.factory_extra_args() == {"temperature": 0.2}
+    assert model.factory_providers() is None
+
+
+def test_factory_extension_rejects_invalid_providers() -> None:
+    def model_ext_for(providers: str) -> str:
+        return f"        extensions:\n          factory:\n            providers: {providers}\n"
+
+    load_registry_text(
+        _probe_registry(
+            provider_key="surplus",
+            name="Surplus",
+            targets="[factory]",
+            enabled="true",
+            # duplicates are fine; the shape is what matters
+            model_ext=model_ext_for("[openai, openai]"),
+        )
+    )
+    for bad_list in ("[]", "[openai, 5]", "[openai, '']"):
+        bad_content = _probe_registry(
+            provider_key="surplus",
+            name="Surplus",
+            targets="[factory]",
+            enabled="true",
+            model_ext=model_ext_for(bad_list),
+        )
+        with pytest.raises(RegistryValidationError, match="providers must be"):
+            load_registry_text(bad_content)
+
+
+def test_factory_extension_accepts_any_passthrough_shape() -> None:
+    # VAL-PIN-001: passthroughs are never shape- or type-checked; lists and
+    # scalars flow through verbatim alongside objects.
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[factory]",
+        enabled="true",
+        model_ext=(
+            "        extensions:\n"
+            "          factory:\n"
+            "            extraArgs: [1, two, {three: null}]\n"
+            "            extraHeaders: static\n"
+        ),
+    )
+    model = load_registry_text(content).providers[0].models[0]
+    assert model.factory_extra_args() == [1, "two", {"three": None}]
+    assert model.factory_extra_headers() == "static"
+
+
+def test_factory_extension_accepts_opaque_extra_args_values() -> None:
+    # VAL-PIN-001: extraArgs values are never type-checked; arbitrary YAML/JSON
+    # shapes (even NaN) flow through to the request body.
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[factory]",
+        enabled="true",
+        model_ext=(
+            "        extensions:\n"
+            "          factory:\n"
+            "            extraArgs:\n"
+            "              price: .nan\n"
+            "              anything: [1, two, {three: null}]\n"
+        ),
+    )
+    model = load_registry_text(content).providers[0].models[0]
+    extra_args = model.factory_extra_args()
+    assert extra_args is not None
+    assert "price" in extra_args
+    assert extra_args["anything"] == [1, "two", {"three": None}]
+
+
+def test_vscode_extension_accepts_passthroughs() -> None:
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[vscode]",
+        enabled="true",
+        model_ext=(
+            "        extensions:\n"
+            "          vscode:\n"
+            "            id: custom-id\n"
+            "            extraArgs:\n"
+            "              temperature: 0.2\n"
+            "            extraHeaders:\n"
+            "              X-Pin: static\n"
+        ),
+    )
+    model = load_registry_text(content).providers[0].models[0]
+    assert model.vscode_extra_args() == {"temperature": 0.2}
+    assert model.vscode_extra_headers() == {"X-Pin": "static"}
+
+
+def test_vscode_extension_accepts_any_passthrough_shape() -> None:
+    # VAL-PIN-001: vscode passthroughs are never shape- or type-checked.
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[vscode]",
+        enabled="true",
+        model_ext=(
+            "        extensions:\n"
+            "          vscode:\n"
+            "            id: custom-id\n"
+            "            extraArgs: [1, two]\n"
+            "            extraHeaders:\n"
+            "              - list\n"
+            "              - of\n"
+            "              - strings\n"
+        ),
+    )
+    model = load_registry_text(content).providers[0].models[0]
+    assert model.vscode_extra_args() == [1, "two"]
+    assert model.vscode_extra_headers() == ["list", "of", "strings"]
+
+
+def test_chatgpt_provider_extension_accepts_http_headers() -> None:
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[chatgpt]",
+        enabled="true",
+        provider_ext=(
+            "    extensions:\n"
+            "      chatgpt:\n"
+            "        providerId: modfig-surplus\n"
+            "        wireApi: responses\n"
+            "        default: true\n"
+            "        httpHeaders:\n"
+            "          X-Custom: static-value\n"
+        ),
+    )
+    provider = load_registry_text(content).providers[0]
+    assert provider.chatgpt_http_headers() == {"X-Custom": "static-value"}
+
+
+def test_chatgpt_provider_extension_rejects_non_string_http_headers() -> None:
+    content = _probe_registry(
+        provider_key="surplus",
+        name="Surplus",
+        targets="[chatgpt]",
+        enabled="true",
+        provider_ext=(
+            "    extensions:\n"
+            "      chatgpt:\n"
+            "        providerId: modfig-surplus\n"
+            "        wireApi: responses\n"
+            "        default: true\n"
+            "        httpHeaders:\n"
+            "          X-Custom: [1, 2]\n"
+        ),
+    )
+    with pytest.raises(RegistryValidationError, match="values must be strings"):
         load_registry_text(content)
 
 
