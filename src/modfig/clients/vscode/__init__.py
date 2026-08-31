@@ -1442,6 +1442,7 @@ def project_vscode_providers(
             provider_name=provider.name,
             vscode_extra_args=model.vscode_extra_args(),
             vscode_extra_headers=model.vscode_extra_headers(),
+            base_url_override=model.base_url_override,
         )
         for provider, model in registry.emitted_models("vscode")
     )
@@ -1482,7 +1483,7 @@ def project_vscode_model_snapshots(
         projected_model: dict[str, Any] = {
             "id": model_id,
             "name": model.display_name,
-            "url": model.base_url.rstrip("/") + "/chat/completions",
+            "url": model.resolved_base_url().rstrip("/") + "/chat/completions",
             "toolCalling": model.tool_calling,
             "vision": not model.no_image_support,
             "maxInputTokens": model.max_input_tokens or 0,
@@ -1591,6 +1592,7 @@ def plan_vscode(
             provider_name=provider.name,
             vscode_extra_args=model.vscode_extra_args(),
             vscode_extra_headers=model.vscode_extra_headers(),
+            base_url_override=model.base_url_override,
         )
         for provider, model in registry.emitted_models("vscode")
     )
@@ -1856,7 +1858,7 @@ def _project_legacy_vscode_model_snapshots(
             variable = secret_variable(model.api_key_reference)
             entry: dict[str, Any] = {
                 "id": f"{VSCODE_PROVIDER_PREFIX}{model.provider_key}",
-                "baseUrl": model.base_url,
+                "baseUrl": model.resolved_base_url(),
                 "apiKey": f"env.{variable}",
                 "models": [],
             }

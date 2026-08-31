@@ -780,7 +780,7 @@ def _factory_transaction(
     monkeypatch.setattr(app, "resolve_manifest_path", lambda *_: manifest)
     monkeypatch.setattr(app, "_merged_adapter_routes", lambda **kwargs: app.AdapterRoutes((route,)))
     # ponytail: transaction tests run after probe behavior covered in test_probe.py.
-    monkeypatch.setattr(app.factory, "probe_factory_responses", lambda *args, **kwargs: None)
+    monkeypatch.setattr(app.factory, "probe_factory_models", lambda *args, **kwargs: None)
     return config, settings, manifest
 
 

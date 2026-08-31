@@ -454,7 +454,7 @@ def test_external_verification_failure_rolls_back_factory_core(
     )
     # ponytail: this test exercises external-adapter rollback downstream of the
     # live Responses probe; the probe has dedicated coverage in test_probe.py.
-    monkeypatch.setattr(app.factory, "probe_factory_responses", lambda *args, **kwargs: None)
+    monkeypatch.setattr(app.factory, "probe_factory_models", lambda *args, **kwargs: None)
     journal = tmp_path / "pending.json"
     backups = tmp_path / "backups"
 

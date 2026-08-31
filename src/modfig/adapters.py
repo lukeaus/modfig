@@ -135,6 +135,11 @@ class ResolvedModel:
     vscode_extra_args: Any | None = None
     vscode_extra_headers: Any | None = None
     chatgpt_http_headers: Mapping[str, Any] | None = None
+    base_url_override: str | None = None
+
+    def resolved_base_url(self) -> str:
+        # ponytail: per-model override wins; otherwise the provider baseUrl.
+        return self.base_url_override or self.base_url
 
 
 @dataclass(frozen=True)

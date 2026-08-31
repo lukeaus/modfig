@@ -400,6 +400,44 @@ def test_factory_scalar_features_coexist() -> None:
     }
 
 
+def test_factory_projections_emit_per_model_base_url_override() -> None:
+    registry = load_registry_text(
+        textwrap.dedent(
+            """\
+            specVersion: "0.1"
+            providers:
+              surplus:
+                name: Surplus
+                targets: [factory]
+                baseUrl: https://api.surplusintelligence.ai/v1
+                apiKey: env.SURPLUS_KEY
+                provider: anthropic
+                enabled: true
+                models:
+                  claude-sonnet-5:
+                    displayName: Claude Sonnet 5
+                    contextWindow: 1048576
+                    maxOutputTokens: 128000
+                    baseUrl: https://api.surplusintelligence.ai/anthropic
+                    enabled: true
+                  deepseek-v4-flash:
+                    displayName: DeepSeek V4 Flash
+                    contextWindow: 1048576
+                    maxOutputTokens: 128000
+                    enabled: true
+            """
+        )
+    )
+    projected = build_models(
+        registry,
+        {"SURPLUS_KEY": "secret"},
+        {"customModels": [], "modelFavorites": []},
+    )
+    by_model = {entry["model"]: entry for entry in projected}
+    assert by_model["claude-sonnet-5"]["baseUrl"] == "https://api.surplusintelligence.ai/anthropic"
+    assert by_model["deepseek-v4-flash"]["baseUrl"] == "https://api.surplusintelligence.ai/v1"
+
+
 def test_factory_validate_defensively_rejects_native_defaults_and_invalid_reasoning() -> None:
     validation = AdapterValidationContext("factory", "core", lambda reference: _adapter_model())
     with pytest.raises(AdapterPlanError, match="defaults"):

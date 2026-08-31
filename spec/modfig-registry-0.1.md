@@ -226,6 +226,7 @@ present nested target mapping (`chatgpt` or `vscode`) must be a mapping, not
 | `maxOutputTokens` | positive integer | yes | no | none | Must not exceed `contextWindow`. |
 | `maxInputTokens` | non-negative integer | no | yes | `contextWindow - maxOutputTokens` | `null` means absent. |
 | `provider` | non-empty string | no | yes | absent | Factory effective-provider override only; `null` means absent. It never selects ChatGPT transport. |
+| `baseUrl` | absolute URL | no | no | provider `baseUrl` | Per-model endpoint override, validated like the provider `baseUrl`. Used by Factory custom models and VS Code model URLs; an Anthropic-transport model with an explicit `baseUrl` is live-probed at `<baseUrl>/v1/messages`. |
 | `noImageSupport` | boolean | no | yes | `false` | `null` means absent. |
 | `toolCalling` | boolean | no | yes | `false` | `null` means absent. |
 | `favourite` | boolean | no | yes | `false` | `null` means absent. |

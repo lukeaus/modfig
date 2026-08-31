@@ -107,6 +107,7 @@ class Model:
     chatgpt_reasoning_levels: tuple[str, ...] = ()
     vscode_reasoning_levels: tuple[str, ...] = ()
     vscode_default_reasoning_level: str | None = None
+    base_url_override: str | None = None
 
     def factory_id(self, provider_key: str) -> str:
         # ponytail: IDs are always derived from the model/provider keys;
@@ -190,6 +191,12 @@ class Provider:
 
     def emits_to(self, target: str) -> bool:
         return self.enabled and target in self.targets
+
+    def resolved_base_url(self, model: Model) -> str:
+        # ponytail: a per-model baseUrl override wins; otherwise the provider
+        # baseUrl is the single source. Targets that already emit per-model
+        # endpoints (Factory customModels, VS Code model URLs) read this.
+        return model.base_url_override or self.base_url
 
     def chatgpt_provider_id(self) -> str:
         chatgpt_extension = self.extensions.get("chatgpt")
@@ -580,6 +587,7 @@ def _parse_model(
         "noImageSupport",
         "toolCalling",
         "favourite",
+        "baseUrl",
         "extensions",
     }
     _reject_unknown_fields(value, allowed, location, issues)
@@ -597,6 +605,11 @@ def _parse_model(
     enabled = _required_bool(value, "enabled", location, issues)
     provider_override = _parse_model_provider(value.get("provider"), location, issues)
     effective_provider = provider_override or provider_protocol or "generic-chat-completion-api"
+    base_url_override = (
+        _required_string(value, "baseUrl", location, issues) if "baseUrl" in value else None
+    )
+    if base_url_override:
+        _validate_url(base_url_override, f"{location}.baseUrl", issues)
     no_image_support = _optional_bool(
         value.get("noImageSupport"), f"{location}.noImageSupport", issues
     )
@@ -627,6 +640,7 @@ def _parse_model(
         enabled=enabled,
         provider_override=provider_override,
         effective_provider=effective_provider,
+        base_url_override=base_url_override,
         no_image_support=no_image_support,
         tool_calling=tool_calling,
         favourite=favourite,
