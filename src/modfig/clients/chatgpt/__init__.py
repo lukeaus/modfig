@@ -896,6 +896,7 @@ def _resolved_chatgpt_models(registry: Registry) -> tuple[ResolvedModel, ...]:
             provider_name=provider.name,
             context_window=model.context_window,
             chatgpt_http_headers=provider.chatgpt_http_headers(),
+            base_url_override=model.base_url_override,
         )
         for provider, model in registry.emitted_models("chatgpt")
     )

@@ -213,6 +213,12 @@
           "minLength": 1,
           "pattern": ".*\\S.*"
         },
+        "baseUrl": {
+          "type": "string",
+          "minLength": 1,
+          "format": "uri",
+          "description": "Optional per-model endpoint override. When absent, the provider baseUrl applies. Validated like the provider baseUrl."
+        },
         "noImageSupport": { "type": ["boolean", "null"] },
         "toolCalling": { "type": ["boolean", "null"] },
         "favourite": { "type": ["boolean", "null"] },

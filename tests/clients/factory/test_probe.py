@@ -1,7 +1,8 @@
-"""Responses endpoint preflight probe tests (VAL-PROBE-001..004, VAL-CROSS-002).
+"""Transport preflight probe tests (VAL-PROBE-001..004, VAL-CROSS-002).
 
-These tests exercise the fail-closed Responses probe against a local HTTP stub so
-no real provider is contacted and no real credentials are used.
+These tests exercise the fail-closed Responses and Messages probes against a
+local HTTP stub so no real provider is contacted and no real credentials are
+used.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ import pytest
 
 from modfig import app
 from modfig.cli import main
-from modfig.clients.factory import probe_factory_responses
+from modfig.clients.factory import probe_factory_models
 from modfig.errors import AppError
 from modfig.registry import load_registry_text
 
@@ -113,6 +114,8 @@ class _ProbeHandler(BaseHTTPRequestHandler):
                 "path": self.path,
                 "body": body,
                 "auth": self.headers.get("Authorization", ""),
+                "x_api_key": self.headers.get("x-api-key", ""),
+                "anthropic_version": self.headers.get("anthropic-version", ""),
             }
         )
         payload = behavior["body"]
@@ -167,7 +170,7 @@ def test_plain_validate_does_not_probe_resolve_secrets_or_open_sockets(
     def fail(*args: object, **kwargs: object) -> None:
         raise AssertionError("plain validate must not probe, resolve secrets, or open sockets")
 
-    monkeypatch.setattr("modfig.clients.factory.probe_factory_responses", fail)
+    monkeypatch.setattr("modfig.clients.factory.probe_factory_models", fail)
     monkeypatch.setattr("modfig.clients.factory.resolve_secret", fail)
     monkeypatch.setattr("urllib.request.urlopen", fail)
 
@@ -197,9 +200,41 @@ def test_probe_noop_without_openai_factory_models() -> None:
         raise AssertionError("generic transport must not be probed")
 
     monkeypatch_target = pytest.MonkeyPatch()
-    monkeypatch_target.setattr("urllib.request.urlopen", fail)
+    monkeypatch_target.setattr("urllib.request.build_opener", fail)
     try:
-        assert probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL}) == ()
+        assert probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL}) == ()
+    finally:
+        monkeypatch_target.undo()
+
+
+def test_probe_noop_for_anthropic_without_explicit_override() -> None:
+    registry = load_registry_text(
+        'specVersion: "0.1"\n'
+        "providers:\n"
+        "  router:\n"
+        "    name: Router\n"
+        "    targets: [factory]\n"
+        "    baseUrl: https://api.surplusintelligence.ai/v1\n"
+        "    apiKey: env.ROUTER_KEY\n"
+        "    provider: anthropic\n"
+        "    enabled: true\n"
+        "    models:\n"
+        "      claude-model:\n"
+        "        displayName: Claude Model\n"
+        "        contextWindow: 8192\n"
+        "        maxOutputTokens: 1024\n"
+        "        enabled: true\n"
+    )
+
+    def fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError(
+            "anthropic transport without an explicit per-model baseUrl must not be probed"
+        )
+
+    monkeypatch_target = pytest.MonkeyPatch()
+    monkeypatch_target.setattr("urllib.request.build_opener", fail)
+    try:
+        assert probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL}) == ()
     finally:
         monkeypatch_target.undo()
 
@@ -213,7 +248,7 @@ def test_probe_probes_only_openai_factory_models_at_responses() -> None:
         generic_url = f"http://127.0.0.1:{generic_server.server_address[1]}/v1"
         registry = load_registry_text(_mixed_factory_registry(openai_url, generic_url))
 
-        probed = probe_factory_responses(
+        probed = probe_factory_models(
             registry, {"OPENAI_KEY": KEY_SENTINEL, "GENERIC_KEY": "generic-key"}
         )
 
@@ -265,13 +300,83 @@ def test_probe_ignores_factory_passthroughs_for_coverage() -> None:
             "              provider: [openai]\n"
         )
 
-        probed = probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL})
+        probed = probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL})
 
     # probe scope is the effective wire declared in the registry (openai), not
     # provider pins or extraArgs passthroughs; generic transport is never
     # Responses-probed
     assert probed == ()
     assert server.requests == []
+
+
+# --- VAL-PROBE-002c: anthropic models with an explicit baseUrl probe at Messages ---
+
+
+def _anthropic_factory_registry(base_url: str, *, model: str = "claude-model") -> str:
+    return (
+        f'specVersion: "0.1"\n'
+        f"providers:\n"
+        f"  surplus:\n"
+        f"    name: Surplus\n"
+        f"    targets: [factory]\n"
+        f"    baseUrl: https://api.surplusintelligence.ai/v1\n"
+        f"    apiKey: env.SURPLUS_KEY\n"
+        f"    provider: anthropic\n"
+        f"    enabled: true\n"
+        f"    models:\n"
+        f"      {model}:\n"
+        f"        displayName: Claude Model\n"
+        f"        contextWindow: 8192\n"
+        f"        maxOutputTokens: 1024\n"
+        f"        baseUrl: {base_url}\n"
+        f"        enabled: true\n"
+    )
+
+
+def test_probe_anthropic_override_hits_messages_endpoint() -> None:
+    with _stub_server(
+        [{"status": 200, "body": b'{"content": [{"type": "text", "text": "hi"}]}'}]
+    ) as server:
+        url = f"http://127.0.0.1:{server.server_address[1]}/anthropic"
+        registry = load_registry_text(_anthropic_factory_registry(url))
+
+        probed = probe_factory_models(registry, {"SURPLUS_KEY": KEY_SENTINEL})
+
+    assert probed == (("surplus", "claude-model"),)
+    assert len(server.requests) == 1
+    assert server.requests[0]["path"] == "/anthropic/v1/messages"
+    assert server.requests[0]["x_api_key"] == KEY_SENTINEL
+    assert server.requests[0]["anthropic_version"] == "2023-06-01"
+    assert server.requests[0]["auth"] == ""
+    sent = json.loads(server.requests[0]["body"])
+    assert sent["model"] == "claude-model"
+    assert sent["max_tokens"] == 1
+    assert sent["messages"] == [{"role": "user", "content": "ping"}]
+
+
+def test_probe_anthropic_override_rejects_unusable_messages_output() -> None:
+    with _stub_server([{"status": 200, "body": b"{}"}]) as server:
+        url = f"http://127.0.0.1:{server.server_address[1]}/anthropic"
+        registry = load_registry_text(_anthropic_factory_registry(url))
+        with pytest.raises(AppError, match="unusable response output"):
+            probe_factory_models(registry, {"SURPLUS_KEY": KEY_SENTINEL})
+
+    assert server.requests[0]["path"] == "/anthropic/v1/messages"
+
+
+def test_probe_anthropic_override_fails_closed_without_leaking_body() -> None:
+    with _stub_server([{"status": 503, "body": BODY_SENTINEL}]) as server:
+        url = f"http://127.0.0.1:{server.server_address[1]}/anthropic"
+        registry = load_registry_text(_anthropic_factory_registry(url))
+        with pytest.raises(AppError) as exc_info:
+            probe_factory_models(registry, {"SURPLUS_KEY": KEY_SENTINEL})
+
+    message = exc_info.value.message
+    assert "Messages probe failed" in message
+    assert "surplus" in message and "claude-model" in message
+    assert "non-200" in message and "503" in message
+    assert KEY_SENTINEL not in message
+    assert BODY_SENTINEL.decode() not in message
 
 
 # --- VAL-PROBE-003: probe success requires usable output ---
@@ -281,7 +386,7 @@ def test_probe_accepts_non_empty_output() -> None:
     with _stub_server([{"status": 200, "body": b'{"output": [{"type": "message"}]}'}]) as server:
         url = f"http://127.0.0.1:{server.server_address[1]}/v1"
         registry = load_registry_text(_openai_factory_registry(url))
-        assert probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL}) == (
+        assert probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL}) == (
             ("router", "primary"),
         )
 
@@ -295,7 +400,7 @@ def test_probe_rejects_empty_or_unparsable_output(body: bytes) -> None:
         url = f"http://127.0.0.1:{server.server_address[1]}/v1"
         registry = load_registry_text(_openai_factory_registry(url))
         with pytest.raises(AppError, match="unusable response output"):
-            probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL})
+            probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL})
 
 
 # --- VAL-PROBE-004: failures are safe and identifiable, no leaks ---
@@ -305,7 +410,7 @@ def test_probe_rejects_invalid_timeout_env() -> None:
     registry = load_registry_text(_openai_factory_registry("https://router.example/v1"))
 
     with pytest.raises(AppError, match="MODFIG_PROBE_TIMEOUT"):
-        probe_factory_responses(
+        probe_factory_models(
             registry,
             {"ROUTER_KEY": KEY_SENTINEL, "MODFIG_PROBE_TIMEOUT": "soon"},
         )
@@ -315,7 +420,7 @@ def test_probe_rejects_non_positive_timeout_env() -> None:
     registry = load_registry_text(_openai_factory_registry("https://router.example/v1"))
 
     with pytest.raises(AppError, match="MODFIG_PROBE_TIMEOUT"):
-        probe_factory_responses(
+        probe_factory_models(
             registry,
             {"ROUTER_KEY": KEY_SENTINEL, "MODFIG_PROBE_TIMEOUT": "0"},
         )
@@ -330,7 +435,7 @@ def test_probe_missing_secret_fails_closed_with_identity(monkeypatch: pytest.Mon
     monkeypatch.setattr("urllib.request.urlopen", fail)
 
     with pytest.raises(AppError) as exc_info:
-        probe_factory_responses(registry, {})
+        probe_factory_models(registry, {})
 
     message = exc_info.value.message
     assert "Responses probe failed" in message
@@ -345,7 +450,7 @@ def test_probe_non_200_fails_closed_without_leaking_body() -> None:
         url = f"http://127.0.0.1:{server.server_address[1]}/v1"
         registry = load_registry_text(_openai_factory_registry(url))
         with pytest.raises(AppError) as exc_info:
-            probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL})
+            probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL})
 
     message = exc_info.value.message
     assert "non-200" in message
@@ -360,7 +465,7 @@ def test_probe_timeout_fails_closed() -> None:
         url = f"http://127.0.0.1:{server.server_address[1]}/v1"
         registry = load_registry_text(_openai_factory_registry(url))
         with pytest.raises(AppError, match="timed out") as exc_info:
-            probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL}, timeout=0.3)
+            probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL}, timeout=0.3)
 
     assert KEY_SENTINEL not in exc_info.value.message
 
@@ -369,7 +474,7 @@ def test_probe_transport_error_fails_closed() -> None:
     port = _closed_loopback_port()
     registry = load_registry_text(_openai_factory_registry(f"http://127.0.0.1:{port}/v1"))
     with pytest.raises(AppError, match="transport error") as exc_info:
-        probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL}, timeout=1.0)
+        probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL}, timeout=1.0)
 
     assert KEY_SENTINEL not in exc_info.value.message
 
@@ -384,7 +489,7 @@ def test_probe_refuses_redirect_without_contacting_target(status: int) -> None:
             origin_url = f"http://127.0.0.1:{origin.server_address[1]}/v1"
             registry = load_registry_text(_openai_factory_registry(origin_url))
             with pytest.raises(AppError, match=rf"redirect.*{status}") as exc_info:
-                probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL})
+                probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL})
 
     assert target.requests == []
     message = exc_info.value.message
@@ -412,7 +517,7 @@ def test_probe_sanitizes_http_exception_without_secrets(
     monkeypatch.setattr("urllib.request.build_opener", lambda *args: FailingOpener())
 
     with pytest.raises(AppError, match="transport error") as exc_info:
-        probe_factory_responses(registry, {"ROUTER_KEY": KEY_SENTINEL})
+        probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL})
 
     message = exc_info.value.message
     assert "router" in message and "primary" in message
@@ -489,7 +594,7 @@ def test_apply_aborts_before_mutation_when_probe_fails(
     def failing_probe(*args: object, **kwargs: object) -> None:
         raise AppError("Responses probe failed: sentinel probe failure")
 
-    monkeypatch.setattr(app.factory, "probe_factory_responses", failing_probe)
+    monkeypatch.setattr(app.factory, "probe_factory_models", failing_probe)
 
     with pytest.raises(AppError, match="sentinel probe failure"):
         app._apply_transaction(
@@ -551,7 +656,7 @@ def test_apply_persists_factory_providers_and_passthroughs(
     backups = tmp_path / "backups"
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(app, "resolve_manifest_path", lambda *_: manifest)
-    monkeypatch.setattr(app.factory, "probe_factory_responses", lambda *args, **kwargs: ())
+    monkeypatch.setattr(app.factory, "probe_factory_models", lambda *args, **kwargs: ())
     settings_path = tmp_path / ".factory" / "settings.json"
     settings_path.parent.mkdir()
     settings_path.write_text('{"customModels": [], "modelFavorites": []}', encoding="utf-8")

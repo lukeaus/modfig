@@ -264,9 +264,9 @@ def validate_adapters(config: str | None) -> None:
             and route.builtin
         ):
             _preflight_builtin_chatgpt(route, registry)
-    # ponytail: the live Responses probe runs only here (validate --adapters)
+    # ponytail: the live transport probe runs only here (validate --adapters)
     # and in apply preflight; plain `validate` never reaches this path.
-    factory.probe_factory_responses(registry, os.environ)
+    factory.probe_factory_models(registry, os.environ)
 
 
 def preflight_targets(targets: Sequence[str]) -> None:
@@ -853,10 +853,10 @@ def _apply_transaction(
     manifest_preview = load_ownership_manifest_snapshot(manifest_path)
     owned = ownership_manifest_owned_components(manifest_preview.manifest)
     clients = selected_clients(validated, registry, owned)
-    # ponytail: probe runs only for selected Factory openai models, before any
+    # ponytail: probe runs only for selected Factory transport models, before any
     # backup or client mutation, so a failing endpoint aborts the transaction.
     if "factory" in clients:
-        factory.probe_factory_responses(registry, os.environ)
+        factory.probe_factory_models(registry, os.environ)
     routes = _merged_adapter_routes(include_chatgpt="chatgpt" in clients)
     selected = tuple(
         (client, component, route)

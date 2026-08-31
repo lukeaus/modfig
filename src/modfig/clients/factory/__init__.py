@@ -650,7 +650,7 @@ def build_model_snapshots(
         projected: dict[str, Any] = {
             "model": model.model,
             "id": model.factory_id,
-            "baseUrl": model.base_url,
+            "baseUrl": model.resolved_base_url(),
             "apiKey": f"${{{secret_variable(model.api_key_reference)}}}",
             "displayName": model.display_name,
             "maxOutputTokens": model.max_output_tokens,
@@ -753,6 +753,7 @@ def _registry_model_snapshots(registry: Registry) -> tuple[ResolvedModel, ...]:
             vscode_extra_args=model.vscode_extra_args(),
             vscode_extra_headers=model.vscode_extra_headers(),
             chatgpt_http_headers=provider.chatgpt_http_headers(),
+            base_url_override=model.base_url_override,
         )
         for provider, model in registry.emitted_models("factory")
     )
@@ -805,18 +806,25 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def probe_factory_responses(
+def probe_factory_models(
     registry: Registry,
     environ: Mapping[str, str],
     *,
     timeout: float = 120.0,
 ) -> tuple[tuple[str, str], ...]:
-    """Probe each enabled Factory-targeted ``openai`` model at ``/responses``.
+    """Probe each enabled Factory target's live wire transports.
 
     Fail-closed preflight used only by ``validate --adapters`` and ``apply``
     preflight. Missing secret, transport error, timeout, non-200, or unusable
     output raises ``AppError`` naming the provider/model and failure class.
     Credentials and response bodies are never included in error text.
+
+    ``openai`` models are probed at ``<resolvedBaseUrl>/responses``.
+    ``anthropic`` models are probed at ``<baseUrl>/v1/messages`` only when the
+    model declares an explicit per-model ``baseUrl`` (the endpoint is asserted
+    at the declared URL, e.g. a Surplus Anthropic endpoint). Anthropic models
+    without an override stay unprobed: the provider-level endpoint is not
+    claimed to serve Messages.
 
     ``MODFIG_PROBE_TIMEOUT`` overrides the per-request timeout (seconds), for
     providers whose cold starts exceed the default.
@@ -833,12 +841,16 @@ def probe_factory_responses(
         (provider, model)
         for provider, model in registry.emitted_models("factory")
         if model.effective_provider == "openai"
+        or (model.effective_provider == "anthropic" and model.base_url_override is not None)
     )
     if not targets:
         return ()
     probed: list[tuple[str, str]] = []
     for provider, model in targets:
-        _probe_responses_one(provider, model, environ, timeout=timeout)
+        if model.effective_provider == "openai":
+            _probe_responses_one(provider, model, environ, timeout=timeout)
+        else:
+            _probe_messages_one(provider, model, environ, timeout=timeout)
         probed.append((provider.key, model.model))
     return tuple(probed)
 
@@ -851,7 +863,7 @@ def _probe_responses_one(
         api_key = resolve_secret(provider.api_key_reference, environ)
     except AppError as exc:
         raise AppError(f"Responses probe failed for {identity}: {exc.message}") from None
-    url = f"{provider.base_url.rstrip('/')}/responses"
+    url = f"{provider.resolved_base_url(model).rstrip('/')}/responses"
     payload = json.dumps({"model": model.model, "input": "ping"}, ensure_ascii=False).encode(
         "utf-8"
     )
@@ -896,6 +908,70 @@ def _probe_responses_one(
     # deeper content/text checks would risk false negatives as the API evolves.
     if not isinstance(output, list) or not output:
         raise AppError(f"Responses probe failed for {identity}: unusable response output") from None
+
+
+def _probe_messages_one(
+    provider: Provider, model: Model, environ: Mapping[str, str], *, timeout: float
+) -> None:
+    identity = f"provider {provider.key!r} model {model.model!r} ({model.factory_id(provider.key)})"
+    base_url = provider.resolved_base_url(model)
+    assert model.base_url_override is not None, "messages probe requires an explicit override"
+    try:
+        api_key = resolve_secret(provider.api_key_reference, environ)
+    except AppError as exc:
+        raise AppError(f"Messages probe failed for {identity}: {exc.message}") from None
+    url = f"{base_url.rstrip('/')}/v1/messages"
+    payload = json.dumps(
+        {
+            "model": model.model,
+            "max_tokens": 1,
+            "messages": [{"role": "user", "content": "ping"}],
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        opener = urllib.request.build_opener(_NoRedirectHandler())
+        with opener.open(request, timeout=timeout) as response:
+            status = response.status
+            body = response.read()
+    except urllib.error.HTTPError as exc:
+        failure = "redirect" if 300 <= exc.code < 400 else "non-200 response"
+        detail = f"{failure} (status {exc.code})"
+        raise AppError(f"Messages probe failed for {identity}: {detail}") from None
+    except http.client.HTTPException:
+        raise AppError(f"Messages probe failed for {identity}: transport error") from None
+    except urllib.error.URLError as exc:
+        if isinstance(exc.reason, (socket.timeout, TimeoutError)):
+            raise AppError(f"Messages probe failed for {identity}: request timed out") from None
+        raise AppError(f"Messages probe failed for {identity}: transport error") from None
+    except TimeoutError:
+        raise AppError(f"Messages probe failed for {identity}: request timed out") from None
+    except OSError:
+        raise AppError(f"Messages probe failed for {identity}: transport error") from None
+    if status != 200:
+        raise AppError(
+            f"Messages probe failed for {identity}: non-200 response (status {status})"
+        ) from None
+    try:
+        data = json.loads(body)
+    except (ValueError, UnicodeError):
+        raise AppError(f"Messages probe failed for {identity}: unusable response output") from None
+    # ponytail: a non-empty `content` array is the minimal usable-output
+    # signal, mirroring the Responses probe; streaming-style delta payloads
+    # without a content array are not accepted.
+    content = data.get("content") if isinstance(data, dict) else None
+    if not isinstance(content, list) or not content:
+        raise AppError(f"Messages probe failed for {identity}: unusable response output") from None
 
 
 def _merge_favorites(

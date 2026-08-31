@@ -240,6 +240,27 @@ def test_current_code_projection_matches_working_vscode_writer_schema() -> None:
     }
 
 
+def test_current_code_projection_emits_per_model_base_url_override() -> None:
+    model = ResolvedModel(
+        provider_key="surplus",
+        base_url="https://api.surplusintelligence.ai/v1",
+        api_key_reference="env.SURPLUS_KEY",
+        model="claude-sonnet-5",
+        display_name="Claude Sonnet 5",
+        max_output_tokens=128000,
+        effective_provider="anthropic",
+        no_image_support=False,
+        favourite=False,
+        factory_id="custom:claude-sonnet-5--surplus",
+        vscode_id="claude-sonnet-5",
+        base_url_override="https://api.surplusintelligence.ai/anthropic",
+    )
+    projected = project_vscode_model_snapshots((model,), proven_runtime())
+    assert projected[0]["models"][0]["url"] == (
+        "https://api.surplusintelligence.ai/anthropic/chat/completions"
+    )
+
+
 def test_current_code_projection_emits_reasoning_controls() -> None:
     model = ResolvedModel(
         provider_key="router",

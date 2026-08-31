@@ -56,7 +56,30 @@ Factory emits each model's effective provider unchanged:
 - `openai` means the OpenAI Responses API and is probed at `/responses` before
   apply.
 - `generic-chat-completion-api` means OpenAI-compatible Chat Completions.
-- `anthropic` means the Anthropic Messages API.
+- `anthropic` means the Anthropic Messages API; when the model declares a
+  per-model `baseUrl`, that endpoint is probed at `<baseUrl>/v1/messages`
+  before apply (e.g. Surplus's `https://api.surplusintelligence.ai/anthropic`).
+
+Each model's `baseUrl` defaults to the provider `baseUrl`. A per-model
+`baseUrl` overrides it for that model only:
+
+```yaml
+providers:
+  surplus:
+    name: Surplus
+    targets: [factory]
+    baseUrl: https://api.surplusintelligence.ai/v1
+    apiKey: env.SURPLUS_API_KEY
+    provider: anthropic
+    enabled: true
+    models:
+      claude-sonnet-5:
+        displayName: Claude Sonnet 5
+        contextWindow: 1048576
+        maxOutputTokens: 128000
+        baseUrl: https://api.surplusintelligence.ai/anthropic
+        enabled: true
+```
 
 Use `openai` only when the configured endpoint actually supports Responses.
 Model names alone do not select a transport.

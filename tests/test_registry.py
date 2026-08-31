@@ -110,11 +110,13 @@ def _probe_registry(
     provider_protocol: str | None = None,
     model_key: str = "model",
     display_name: str = "Model",
+    model_base_url: str | None = None,
     provider_ext: str = "",
     model_ext: str = "",
 ) -> str:
     """Build a single-provider, single-model map-shaped registry for extension/field probes."""
     protocol_line = f"    provider: {provider_protocol}\n" if provider_protocol else ""
+    model_base_url_line = f"        baseUrl: {model_base_url}\n" if model_base_url else ""
     return (
         'specVersion: "0.1"\n'
         "providers:\n"
@@ -130,7 +132,10 @@ def _probe_registry(
         f"      {model_key}:\n"
         f"        displayName: {display_name}\n"
         "        contextWindow: 8192\n"
-        "        maxOutputTokens: 1024\n" + f"        enabled: {enabled}\n" + model_ext
+        "        maxOutputTokens: 1024\n"
+        + f"        enabled: {enabled}\n"
+        + model_base_url_line
+        + model_ext
     )
 
 
@@ -357,6 +362,41 @@ def test_provider_protocol_is_used_when_model_override_is_absent() -> None:
     registry = load_registry_text(registry_text("anthropic"))
 
     assert registry.providers[0].models[0].effective_provider == "anthropic"
+
+
+def test_model_base_url_override_resolves_per_model() -> None:
+    # VAL-ENDPOINT-001: a model-level baseUrl overrides the provider endpoint
+    # for that model only; the provider default stays for models without one.
+    registry = load_registry_text(
+        _probe_registry(
+            targets="[factory]",
+            enabled="true",
+            provider_protocol="anthropic",
+            model_base_url="https://api.surplusintelligence.ai/anthropic",
+        )
+    )
+    provider = registry.providers[0]
+    model = provider.models[0]
+    assert model.base_url_override == "https://api.surplusintelligence.ai/anthropic"
+    assert provider.resolved_base_url(model) == "https://api.surplusintelligence.ai/anthropic"
+    # regression: models without an override keep the provider baseUrl
+    fallback = load_registry_text(
+        _probe_registry(targets="[factory]", enabled="true", provider_protocol="anthropic")
+    )
+    assert fallback.providers[0].resolved_base_url(fallback.providers[0].models[0]) == (
+        "https://example.com/v1"
+    )
+
+
+def test_model_base_url_rejects_invalid_urls() -> None:
+    for bad_url in ("not-a-url", "ftp://example.com", "http://public.example/v1"):
+        content = _probe_registry(
+            targets="[factory]",
+            enabled="true",
+            model_base_url=bad_url,
+        )
+        with pytest.raises(RegistryValidationError, match="baseUrl"):
+            load_registry_text(content)
 
 
 def test_effective_provider_defaults_to_generic_chat_completion_api() -> None:
