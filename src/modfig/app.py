@@ -146,6 +146,7 @@ def adapter_plan_context(
             vscode_extra_args=model.vscode_extra_args(),
             vscode_extra_headers=model.vscode_extra_headers(),
             chatgpt_http_headers=provider.chatgpt_http_headers(),
+            base_url_override=model.base_url_override,
         )
         for provider, model in registry.emitted_models(logical_client)
     )

@@ -1115,6 +1115,27 @@ def test_factory_plan_context_contains_only_factory_emitted_model_dtos() -> None
         )
 
 
+def test_factory_plan_context_carries_per_model_base_url_override() -> None:
+    # Regression: the adapter plan context must forward the per-model baseUrl
+    # override; dropping it silently reverts Factory customModels to the
+    # provider endpoint while the probe still checks the override URL.
+    registry = load_registry_text(
+        REGISTRY.replace(
+            "        enabled: true",
+            "        provider: anthropic\n"
+            "        baseUrl: https://api.surplusintelligence.ai/anthropic\n"
+            "        enabled: true",
+            1,
+        )
+    )
+
+    context = app.adapter_plan_context("factory", "core", registry)
+    model = context.models[0]
+
+    assert model.base_url_override == "https://api.surplusintelligence.ai/anthropic"
+    assert model.resolved_base_url() == "https://api.surplusintelligence.ai/anthropic"
+
+
 def test_provider_only_factory_registry_selects_core_model_writer() -> None:
     registry = load_registry_text(REGISTRY)
 
