@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import hashlib
 import http.client
 import json
@@ -837,22 +838,38 @@ def probe_factory_models(
             raise AppError("MODFIG_PROBE_TIMEOUT must be a positive number of seconds") from exc
         if timeout <= 0:
             raise AppError("MODFIG_PROBE_TIMEOUT must be a positive number of seconds")
+    # ponytail: comma-separated model-name exclusion list (exact match) for
+    # providers with a known outage; remove when Surplus GPT recovers.
+    exclusions = {
+        name.strip() for name in environ.get("MODFIG_PROBE_EXCLUDE", "").split(",") if name.strip()
+    }
     targets = tuple(
         (provider, model)
         for provider, model in registry.emitted_models("factory")
-        if model.effective_provider == "openai"
-        or (model.effective_provider == "anthropic" and model.base_url_override is not None)
+        if model.model not in exclusions
+        and (
+            model.effective_provider == "openai"
+            or (model.effective_provider == "anthropic" and model.base_url_override is not None)
+        )
     )
     if not targets:
         return ()
-    probed: list[tuple[str, str]] = []
-    for provider, model in targets:
+
+    def _probe(provider: Provider, model: Model) -> None:
         if model.effective_provider == "openai":
             _probe_responses_one(provider, model, environ, timeout=timeout)
         else:
             _probe_messages_one(provider, model, environ, timeout=timeout)
-        probed.append((provider.key, model.model))
-    return tuple(probed)
+
+    # ponytail: bounded 8-way fan-out; cold provider starts dominate wall time,
+    # so sequential probing made apply preflight take minutes. First failure
+    # (in declaration order) propagates; fail-closed semantics unchanged.
+    workers = min(8, len(targets))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(_probe, provider, model) for provider, model in targets]
+        for future in futures:
+            future.result()
+    return tuple((provider.key, model.model) for provider, model in targets)
 
 
 def _probe_responses_one(

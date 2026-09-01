@@ -239,6 +239,26 @@ def test_probe_noop_for_anthropic_without_explicit_override() -> None:
         monkeypatch_target.undo()
 
 
+def test_probe_excludes_models_named_in_env() -> None:
+    registry = load_registry_text(_openai_factory_registry("https://router.example/v1"))
+
+    def fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError("excluded model must not be probed")
+
+    monkeypatch_target = pytest.MonkeyPatch()
+    monkeypatch_target.setattr("urllib.request.build_opener", fail)
+    try:
+        assert (
+            probe_factory_models(
+                registry,
+                {"ROUTER_KEY": KEY_SENTINEL, "MODFIG_PROBE_EXCLUDE": "primary, other"},
+            )
+            == ()
+        )
+    finally:
+        monkeypatch_target.undo()
+
+
 # --- VAL-PROBE-002: probe is scoped to openai declarations at /responses ---
 
 
@@ -389,6 +409,42 @@ def test_probe_accepts_non_empty_output() -> None:
         assert probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL}) == (
             ("router", "primary"),
         )
+
+
+def test_probe_models_run_concurrently() -> None:
+    """Two slow endpoints finish in ~one delay, not the sum (regression guard
+    for sequential probing that made apply preflight exceed sync timeouts)."""
+    behavior = {"status": 200, "body": b'{"output": [{"type": "message"}]}', "delay": 1.0}
+    with _stub_server([behavior, behavior]) as server:
+        url = f"http://127.0.0.1:{server.server_address[1]}/v1"
+        registry = load_registry_text(
+            'specVersion: "0.1"\n'
+            "providers:\n"
+            "  router:\n"
+            "    name: Router\n"
+            "    targets: [factory]\n"
+            f"    baseUrl: {url}\n"
+            "    apiKey: env.ROUTER_KEY\n"
+            "    provider: openai\n"
+            "    enabled: true\n"
+            "    models:\n"
+            "      one:\n"
+            "        displayName: One\n"
+            "        contextWindow: 8192\n"
+            "        maxOutputTokens: 1024\n"
+            "        enabled: true\n"
+            "      two:\n"
+            "        displayName: Two\n"
+            "        contextWindow: 8192\n"
+            "        maxOutputTokens: 1024\n"
+            "        enabled: true\n"
+        )
+        start = time.monotonic()
+        probed = probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL})
+        elapsed = time.monotonic() - start
+
+    assert probed == (("router", "one"), ("router", "two"))
+    assert elapsed < 1.9, f"probes appear sequential: {elapsed:.2f}s for two 1s endpoints"
 
 
 @pytest.mark.parametrize(
