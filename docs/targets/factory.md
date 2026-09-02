@@ -10,15 +10,15 @@ clientConfig:
   factory:
     core:
       defaults:
-        worker: {provider: surplus, model: deepseek-v4-flash}
-        thinker: {provider: surplus, model: gpt-5.6-terra}
-        orchestrator: {provider: surplus, model: gpt-5.6-terra}
-        simple: {provider: surplus, model: deepseek-v4-flash}
-        validator: {provider: surplus, model: gpt-5.6-terra}
+        worker: {provider: openrouter, model: claude-opus-4-5}
+        thinker: {provider: openrouter, model: gpt-5}
+        orchestrator: {provider: openrouter, model: gpt-5}
+        simple: {provider: openrouter, model: claude-opus-4-5}
+        validator: {provider: openrouter, model: gpt-5}
       session:
-        model: {provider: surplus, model: gpt-5.6-luna}
+        model: {provider: openrouter, model: gpt-5-mini}
         reasoningEffort: max
-        specModeModel: {provider: surplus, model: gpt-5.6-terra}
+        specModeModel: {provider: openrouter, model: gpt-5}
         specModeReasoningEffort: max
 ```
 
@@ -44,7 +44,7 @@ Factory after applying a change.
 
 ```sh
 droid exec \
-  --model custom:gpt-5.6-luna--surplus \
+  --model custom:gpt-5-mini--openrouter \
   --reasoning-effort max \
   "Your prompt"
 ```
@@ -58,18 +58,19 @@ Factory emits each model's effective provider unchanged:
 - `generic-chat-completion-api` means OpenAI-compatible Chat Completions.
 - `anthropic` means the Anthropic Messages API; when the model declares a
   per-model `baseUrl`, that endpoint is probed at `<baseUrl>/v1/messages`
-  before apply (e.g. Surplus's `https://api.surplusintelligence.ai/anthropic`).
+  before apply (e.g. OpenRouter's scoped Anthropic endpoint
+`https://openrouter.ai/api/v1/anthropic`).
 
 Each model's `baseUrl` defaults to the provider `baseUrl`. A per-model
 `baseUrl` overrides it for that model only:
 
 ```yaml
 providers:
-  surplus:
-    name: Surplus
+  openrouter:
+    name: OpenRouter
     targets: [factory]
-    baseUrl: https://api.surplusintelligence.ai/v1
-    apiKey: env.SURPLUS_API_KEY
+    baseUrl: https://openrouter.ai/api/v1
+    apiKey: env.OPENROUTER_API_KEY
     provider: anthropic
     enabled: true
     models:
@@ -77,7 +78,7 @@ providers:
         displayName: Claude Sonnet 5
         contextWindow: 1048576
         maxOutputTokens: 128000
-        baseUrl: https://api.surplusintelligence.ai/anthropic
+        baseUrl: https://openrouter.ai/api/v1/anthropic
         enabled: true
 ```
 
@@ -97,8 +98,8 @@ clientConfig:
     extensions:
       oh-my-droid:
         droids:
-          architect: {provider: surplus, model: gpt-5.6-terra}
-          executor: {provider: surplus, model: deepseek-v4-flash}
+          architect: {provider: openrouter, model: gpt-5}
+          executor: {provider: openrouter, model: claude-opus-4-5}
           analyst: inherit
         prune: false
 ```

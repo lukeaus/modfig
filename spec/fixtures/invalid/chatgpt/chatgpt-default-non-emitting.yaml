@@ -16,19 +16,19 @@ providers:
         contextWindow: 8192
         maxOutputTokens: 1024
         enabled: true
-  surplus:
-    name: Surplus
+  openrouter:
+    name: OpenRouter
     targets: [chatgpt]
-    baseUrl: https://surplus.example/v1
-    apiKey: env.SURPLUS_KEY
+    baseUrl: https://openrouter.example/v1
+    apiKey: env.OPEN_ROUTER_API_KEY
     provider: openai
     enabled: true
     extensions:
       chatgpt:
         default: true
     models:
-      surplus-model:
-        displayName: Surplus Model
+      openrouter-model:
+        displayName: OpenRouter Model
         contextWindow: 8192
         maxOutputTokens: 1024
         enabled: true

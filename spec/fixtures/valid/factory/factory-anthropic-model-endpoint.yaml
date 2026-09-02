@@ -1,14 +1,14 @@
 # VAL-ENDPOINT-001: an Anthropic-transport model under a multi-endpoint
-# provider (Surplus-style) validates with a per-model baseUrl override;
+# provider (OpenRouter-style) validates with a per-model baseUrl override;
 # the override feeds Factory custom model endpoints and VS Code model URLs.
 # Without the override, the provider baseUrl applies.
 specVersion: "0.1"
 providers:
-  surplus:
-    name: Surplus
+  openrouter:
+    name: OpenRouter
     targets: [factory, vscode]
-    baseUrl: https://api.surplusintelligence.ai/v1
-    apiKey: env.SURPLUS_API_KEY
+    baseUrl: https://openrouter.ai/api/v1
+    apiKey: env.OPENROUTER_API_KEY
     provider: anthropic
     enabled: true
     models:
@@ -16,10 +16,10 @@ providers:
         displayName: Claude Sonnet 5
         contextWindow: 1048576
         maxOutputTokens: 128000
-        baseUrl: https://api.surplusintelligence.ai/anthropic
+        baseUrl: https://openrouter.ai/api/v1/anthropic
         enabled: true
-      deepseek-v4-flash:
-        displayName: DeepSeek V4 Flash
+      claude-opus-4-5:
+        displayName: GPT-4o mini
         contextWindow: 1048576
         maxOutputTokens: 128000
         enabled: true

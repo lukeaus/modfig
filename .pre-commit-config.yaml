@@ -1,4 +1,21 @@
 repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      # system language: uses gitleaks on PATH instead of a ~30s Go build;
+      # requires gitleaks >= 8.19 installed locally (brew install gitleaks)
+      - id: gitleaks-system
+        stages: [pre-push]
+        pass_filenames: false
+        # scans committed history AND staged changes; `git` mode alone only
+        # sees committed work, so a staged secret would slip through pre-push
+        entry: gitleaks git --verbose --redact
+      - id: gitleaks-system
+        stages: [pre-push]
+        pass_filenames: false
+        alias: gitleaks-staged
+        # catches secrets sitting staged but not yet committed
+        entry: gitleaks git --pre-commit --staged --redact
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.18.0
     hooks:

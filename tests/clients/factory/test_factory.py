@@ -354,7 +354,7 @@ def test_factory_session_alias_migrates_when_primary_field_is_owned() -> None:
         if not str(field["logicalKey"]).startswith("session.default")
     )
     written = json.loads(initial.artifacts[0].planned)
-    written["sessionDefaultSettings"] = {"model": "custom:kimi-k3--surplus"}
+    written["sessionDefaultSettings"] = {"model": "custom:kimi-k3--openrouter"}
 
     migrated = adapter.plan(context, {identity: json.dumps(written).encode()}, owned)
     migrated_settings = json.loads(migrated.artifacts[0].planned)
@@ -366,7 +366,7 @@ def test_factory_session_alias_migrates_when_primary_field_is_owned() -> None:
     )
     assert alias_field["before"] == {
         "kind": "json",
-        "value": "custom:kimi-k3--surplus",
+        "value": "custom:kimi-k3--openrouter",
     }
 
 
@@ -406,11 +406,11 @@ def test_factory_projections_emit_per_model_base_url_override() -> None:
             """\
             specVersion: "0.1"
             providers:
-              surplus:
-                name: Surplus
+              openrouter:
+                name: OpenRouter
                 targets: [factory]
-                baseUrl: https://api.surplusintelligence.ai/v1
-                apiKey: env.SURPLUS_KEY
+                baseUrl: https://openrouter.ai/api/v1
+                apiKey: env.OPEN_ROUTER_API_KEY
                 provider: anthropic
                 enabled: true
                 models:
@@ -418,10 +418,10 @@ def test_factory_projections_emit_per_model_base_url_override() -> None:
                     displayName: Claude Sonnet 5
                     contextWindow: 1048576
                     maxOutputTokens: 128000
-                    baseUrl: https://api.surplusintelligence.ai/anthropic
+                    baseUrl: https://openrouter.ai/api/v1/anthropic
                     enabled: true
-                  deepseek-v4-flash:
-                    displayName: DeepSeek V4 Flash
+                  claude-opus-4-5:
+                    displayName: Claude Opus 4.5
                     contextWindow: 1048576
                     maxOutputTokens: 128000
                     enabled: true
@@ -430,12 +430,12 @@ def test_factory_projections_emit_per_model_base_url_override() -> None:
     )
     projected = build_models(
         registry,
-        {"SURPLUS_KEY": "secret"},
+        {"OPEN_ROUTER_API_KEY": "secret"},
         {"customModels": [], "modelFavorites": []},
     )
     by_model = {entry["model"]: entry for entry in projected}
-    assert by_model["claude-sonnet-5"]["baseUrl"] == "https://api.surplusintelligence.ai/anthropic"
-    assert by_model["deepseek-v4-flash"]["baseUrl"] == "https://api.surplusintelligence.ai/v1"
+    assert by_model["claude-sonnet-5"]["baseUrl"] == "https://openrouter.ai/api/v1/anthropic"
+    assert by_model["claude-opus-4-5"]["baseUrl"] == "https://openrouter.ai/api/v1"
 
 
 def test_factory_validate_defensively_rejects_native_defaults_and_invalid_reasoning() -> None:
@@ -625,16 +625,16 @@ def test_build_models_emits_factory_providers_and_passthroughs() -> None:
             """\
             specVersion: "0.1"
             providers:
-              surplus:
-                name: Surplus
+              openrouter:
+                name: OpenRouter
                 targets: [factory]
-                baseUrl: https://api.surplusintelligence.ai/v1
-                apiKey: env.SURPLUS_KEY
+                baseUrl: https://openrouter.ai/api/v1
+                apiKey: env.OPEN_ROUTER_API_KEY
                 provider: generic-chat-completion-api
                 enabled: true
                 models:
-                  gpt-5.6-sol:
-                    displayName: GPT-5.6 Sol [Surplus]
+                  gpt-5-mini:
+                    displayName: GPT-5.6 Sol [OpenRouter]
                     contextWindow: 1048576
                     maxOutputTokens: 128000
                     maxInputTokens: 920576
@@ -645,7 +645,7 @@ def test_build_models_emits_factory_providers_and_passthroughs() -> None:
                         extraArgs:
                           max_price_per_1m: 8.0
                   gpt-5.5:
-                    displayName: GPT-5.5 [Surplus]
+                    displayName: GPT-5.5 [OpenRouter]
                     contextWindow: 1048576
                     maxOutputTokens: 128000
                     enabled: true
@@ -656,7 +656,7 @@ def test_build_models_emits_factory_providers_and_passthroughs() -> None:
                         extraHeaders:
                           X-Pin: static
                   gpt-5.4:
-                    displayName: GPT-5.4 [Surplus]
+                    displayName: GPT-5.4 [OpenRouter]
                     contextWindow: 1048576
                     maxOutputTokens: 128000
                     enabled: true
@@ -670,13 +670,13 @@ def test_build_models_emits_factory_providers_and_passthroughs() -> None:
     models = build_models(registry, UnreadableSecrets(), {"customModels": []})
     by_model = {model["model"]: model for model in models}
     # the wire provider stays untouched; the allow-list is merged into the
-    # request-body extraArgs as the Surplus provider pin array
-    assert by_model["gpt-5.6-sol"]["provider"] == "generic-chat-completion-api"
-    assert by_model["gpt-5.6-sol"]["extraArgs"] == {
+    # request-body extraArgs as the OpenRouter provider pin array
+    assert by_model["gpt-5-mini"]["provider"] == "generic-chat-completion-api"
+    assert by_model["gpt-5-mini"]["extraArgs"] == {
         "max_price_per_1m": 8.0,
         "provider": ["openai"],
     }
-    assert "extraHeaders" not in by_model["gpt-5.6-sol"]
+    assert "extraHeaders" not in by_model["gpt-5-mini"]
     assert by_model["gpt-5.5"]["provider"] == "generic-chat-completion-api"
     assert by_model["gpt-5.5"]["extraArgs"] == {"temperature": 0.2}
     assert by_model["gpt-5.5"]["extraHeaders"] == {"X-Pin": "static"}

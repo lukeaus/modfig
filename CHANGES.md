@@ -15,7 +15,7 @@
   and recovery.
 - Added live Responses preflight for Factory models declared with
   `provider: openai`.
-- Added per-model `baseUrl` endpoint overrides (Surplus Anthropic style) for
+- Added per-model `baseUrl` endpoint overrides (OpenRouter Anthropic style) for
   Factory and VS Code projections, with a live Messages preflight for
   `anthropic` models that declare an explicit override endpoint.
 - Raised the default Factory Responses probe timeout to 120 seconds

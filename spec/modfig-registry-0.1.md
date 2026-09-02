@@ -280,7 +280,7 @@ must be enabled and the target must be selected.
 
 The `provider` field declares the endpoint's actual transport and is emitted
 unchanged. ModFig performs no static, name-based Factory transport validation:
-a GPT-family model is accepted under `generic-chat-completion-api` (Surplus and
+a GPT-family model is accepted under `generic-chat-completion-api` (OpenRouter and
 other Chat Completions proxies) and under `openai` (direct OpenAI or
 Responses-capable proxies such as vibeproxy). The live Responses probe (run by
 `validate --adapters` and `apply` preflight) enforces `openai` declarations.

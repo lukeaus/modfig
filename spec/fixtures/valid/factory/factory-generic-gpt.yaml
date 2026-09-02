@@ -1,16 +1,16 @@
 # VAL-CATALOG-006: a GPT-family model under a generic-chat-completion-api
-# provider (Surplus-style) validates; no static name-based transport rule
-# rejects it. The computed Factory id is custom:gpt-5.6-terra--surplus.
+# provider (OpenRouter-style) validates; no static name-based transport rule
+# rejects it. The computed Factory id is custom:gpt-5--openrouter.
 specVersion: "0.1"
 providers:
-  surplus:
-    name: Surplus
+  openrouter:
+    name: OpenRouter
     targets: [factory]
-    baseUrl: https://surplus.example/v1
-    apiKey: env.SURPLUS_API_KEY
+    baseUrl: https://openrouter.example/v1
+    apiKey: env.OPENROUTER_API_KEY
     enabled: true
     models:
-      gpt-5.6-terra:
+      gpt-5:
         displayName: GPT-5.6 Terra
         contextWindow: 1048576
         maxOutputTokens: 128000

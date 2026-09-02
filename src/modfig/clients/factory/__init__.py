@@ -823,7 +823,7 @@ def probe_factory_models(
     ``openai`` models are probed at ``<resolvedBaseUrl>/responses``.
     ``anthropic`` models are probed at ``<baseUrl>/v1/messages`` only when the
     model declares an explicit per-model ``baseUrl`` (the endpoint is asserted
-    at the declared URL, e.g. a Surplus Anthropic endpoint). Anthropic models
+    at the declared URL, e.g. an OpenRouter Anthropic endpoint). Anthropic models
     without an override stay unprobed: the provider-level endpoint is not
     claimed to serve Messages.
 
@@ -839,7 +839,7 @@ def probe_factory_models(
         if timeout <= 0:
             raise AppError("MODFIG_PROBE_TIMEOUT must be a positive number of seconds")
     # ponytail: comma-separated model-name exclusion list (exact match) for
-    # providers with a known outage; remove when Surplus GPT recovers.
+    # providers with a known outage; remove when the outage clears.
     exclusions = {
         name.strip() for name in environ.get("MODFIG_PROBE_EXCLUDE", "").split(",") if name.strip()
     }

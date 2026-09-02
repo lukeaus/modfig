@@ -18,11 +18,11 @@ It also projects the registry-marked default provider into:
 $CODEX_HOME/config.toml
 ```
 
-For example, a registry with `surplus` and `openrouter` produces:
+For example, a registry with `openrouter` and `openrouter` produces:
 
 ```text
-~/.codex/surplus.config.toml
-~/.codex/modfig-surplus-catalog.json
+~/.codex/openrouter.config.toml
+~/.codex/modfig-openrouter-catalog.json
 ~/.codex/openrouter.config.toml
 ~/.codex/modfig-openrouter-catalog.json
 ~/.codex/config.toml
@@ -37,7 +37,7 @@ Mark exactly one enabled ChatGPT provider as the default:
 
 ```yaml
 providers:
-  surplus:
+  openrouter:
     extensions:
       chatgpt:
         wireApi: responses
@@ -52,7 +52,7 @@ the other provider profiles.
 Use a provider profile explicitly in the CLI or TUI:
 
 ```sh
-codex --profile surplus
+codex --profile openrouter
 codex --profile openrouter
 ```
 
@@ -60,7 +60,7 @@ The GUI reads the default projection from `config.toml`. Set `CODEX_HOME` when
 using an isolated account home:
 
 ```sh
-CODEX_HOME=/path/to/codex-home codex --profile surplus
+CODEX_HOME=/path/to/codex-home codex --profile openrouter
 ```
 
 Restart Codex after applying changes so it reloads `config.toml`, profiles, and
@@ -73,8 +73,8 @@ reasoning levels declared by the model:
 
 ```yaml
 models:
-  gpt-5.6-luna:
-    displayName: GPT-5.6 Luna [Surplus]
+  gpt-5-mini:
+    displayName: GPT-5.6 Luna [OpenRouter]
     extensions:
       chatgpt:
         reasoningLevels: [low, medium, high, xhigh, max]

@@ -486,9 +486,9 @@ def test_factory_warning_rejects_decline(monkeypatch: pytest.MonkeyPatch, capsys
     monkeypatch.setattr("builtins.input", lambda _prompt: "n")
 
     with pytest.raises(app.AppError, match="acknowledgement"):
-        app._acknowledge_factory_warning(("custom:gpt-5.6-luna--openai",), False)
+        app._acknowledge_factory_warning(("custom:gpt-5-mini--openai",), False)
 
-    assert "custom:gpt-5.6-luna--openai" in capsys.readouterr().out
+    assert "custom:gpt-5-mini--openai" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("answer", ["y", "yes"])
@@ -518,9 +518,9 @@ def test_factory_warning_eof_rejects_acknowledgement(
 def test_factory_warning_yes_prints_without_prompt(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     monkeypatch.setattr("builtins.input", lambda _prompt: pytest.fail("prompted"))
 
-    app._acknowledge_factory_warning(("custom:gpt-5.6-luna--openai",), True)
+    app._acknowledge_factory_warning(("custom:gpt-5-mini--openai",), True)
 
-    assert "custom:gpt-5.6-luna--openai" in capsys.readouterr().out
+    assert "custom:gpt-5-mini--openai" in capsys.readouterr().out
 
 
 def test_factory_warning_non_tty_aborts_before_side_effects(
@@ -1123,7 +1123,7 @@ def test_factory_plan_context_carries_per_model_base_url_override() -> None:
         REGISTRY.replace(
             "        enabled: true",
             "        provider: anthropic\n"
-            "        baseUrl: https://api.surplusintelligence.ai/anthropic\n"
+            "        baseUrl: https://api.anthropic.com\n"
             "        enabled: true",
             1,
         )
@@ -1132,8 +1132,8 @@ def test_factory_plan_context_carries_per_model_base_url_override() -> None:
     context = app.adapter_plan_context("factory", "core", registry)
     model = context.models[0]
 
-    assert model.base_url_override == "https://api.surplusintelligence.ai/anthropic"
-    assert model.resolved_base_url() == "https://api.surplusintelligence.ai/anthropic"
+    assert model.base_url_override == "https://api.anthropic.com"
+    assert model.resolved_base_url() == "https://api.anthropic.com"
 
 
 def test_provider_only_factory_registry_selects_core_model_writer() -> None:
