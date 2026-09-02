@@ -103,7 +103,11 @@ mapping, client-filtered model resolver, host facts, and host snapshots.
 `clientConfig.factory.extensions.oh-my-droid` belongs to the built-in
 oh-my-droid adapter. Its schema is exactly `{droids, prune}`, where `droids`
 maps plugin droid names to portable Factory model references and `prune`
-defaults to `false`. ModFig validates the mapping, discovers the installed
+defaults to `false`. A droid entry may instead be the inherit sentinel — the
+scalar `inherit` or exactly `{model: inherit}` — which makes the adapter write
+literal `model: inherit` frontmatter so the droid follows the client default.
+Combining `provider` with `model: inherit` is invalid. ModFig validates the
+mapping, discovers the installed
 plugin inventory, rewrites only `model:` frontmatter, and records ownership for
 scoped pruning. Other extension schemas remain adapter-owned.
 

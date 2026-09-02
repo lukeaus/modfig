@@ -35,4 +35,5 @@ clientConfig:
       oh-my-droid:
         droids:
           analyst: {provider: router, model: primary}
+          reviewer: {model: inherit}
         prune: false

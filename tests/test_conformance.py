@@ -40,6 +40,7 @@ SEMANTIC_ONLY_INVALID_FIXTURES = {
     "duplicate-vscode-id.yaml",
     "duplicate-yaml-key.yaml",
     "insecure-http-endpoint.yaml",
+    "oh-my-droid-provider-with-inherit-v0.1.yaml",
 }
 STRUCTURAL_INVALID_FIXTURES = [
     path for path in INVALID_FIXTURES if path.name not in SEMANTIC_ONLY_INVALID_FIXTURES

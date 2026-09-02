@@ -86,7 +86,10 @@ Model names alone do not select a transport.
 
 ## oh-my-droid
 
-The built-in extension maps installed droid names to Factory model IDs:
+The built-in extension maps installed droid names to Factory model IDs. A droid
+entry may instead use the inherit sentinel — the scalar `inherit` or exactly
+`{model: inherit}` — which writes literal `model: inherit` frontmatter so the
+droid follows the client default model:
 
 ```yaml
 clientConfig:
@@ -96,6 +99,7 @@ clientConfig:
         droids:
           architect: {provider: surplus, model: gpt-5.6-terra}
           executor: {provider: surplus, model: deepseek-v4-flash}
+          analyst: inherit
         prune: false
 ```
 

@@ -30,7 +30,7 @@ from ....adapters import (
 from ....components import ExtensionComponent
 from ....errors import AppError
 from ....platform import PrivateParentMissingError, open_private_parent
-from ....registry import ModelReference
+from ....registry import InheritReference, ModelReference
 from ....storage import FileVersion
 
 _COMPONENT = ExtensionComponent("oh-my-droid")
@@ -562,6 +562,8 @@ class OhMyDroidAdapter:
         for name, reference in droids.items():
             if not isinstance(name, str) or not _DROID_NAME_RE.fullmatch(name):
                 raise AdapterPlanError(f"oh-my-droid droid name {name!r} is invalid")
+            if isinstance(reference, InheritReference):
+                continue
             if not isinstance(reference, ModelReference):
                 raise AdapterPlanError(f"oh-my-droid droid {name!r} must use a model reference")
             try:
@@ -623,6 +625,11 @@ class OhMyDroidAdapter:
         for name, reference in droids.items():
             if name not in source_by_name:
                 raise AdapterPlanError(f"oh-my-droid droid {name!r} is not in the plugin inventory")
+            if isinstance(reference, InheritReference):
+                desired[name] = _rewrite_model_frontmatter(
+                    source_by_name[name], name, reference.inherit_marker
+                )
+                continue
             if not isinstance(reference, ModelReference):
                 raise AdapterPlanError(f"oh-my-droid droid {name!r} must use a model reference")
             model = context.resolve_model(reference)
