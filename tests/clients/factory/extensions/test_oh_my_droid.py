@@ -17,7 +17,12 @@ from modfig.adapters import (
 from modfig.clients.factory.extensions import oh_my_droid
 from modfig.components import ExtensionComponent
 from modfig.errors import AppError
-from modfig.registry import ModelReference, RegistryValidationError, load_registry_text
+from modfig.registry import (
+    InheritReference,
+    ModelReference,
+    RegistryValidationError,
+    load_registry_text,
+)
 
 COMPONENT = ExtensionComponent("oh-my-droid")
 
@@ -452,4 +457,172 @@ def test_validate_names_missing_plugin_droid(
         oh_my_droid.adapter.validate(
             {"droids": {"missing": ModelReference("router", "primary")}, "prune": False},
             context,
+        )
+
+
+def test_registry_parses_inherit_droid_reference() -> None:
+    text = """\
+specVersion: "0.1"
+providers:
+  router:
+    name: Router
+    targets: [factory]
+    baseUrl: https://router.example/v1
+    apiKey: env.ROUTER_KEY
+    enabled: true
+    models:
+      primary:
+        displayName: Primary
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+clientConfig:
+  factory:
+    extensions:
+      oh-my-droid:
+        droids:
+          analyst: {model: inherit}
+        prune: false
+"""
+    registry = load_registry_text(text)
+    extension = registry.client_component("factory", COMPONENT)
+    assert extension is not None
+    assert extension["droids"]["analyst"] == InheritReference()
+
+
+def test_registry_parses_scalar_inherit_droid_reference() -> None:
+    text = """\
+specVersion: "0.1"
+providers:
+  router:
+    name: Router
+    targets: [factory]
+    baseUrl: https://router.example/v1
+    apiKey: env.ROUTER_KEY
+    enabled: true
+    models:
+      primary:
+        displayName: Primary
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+clientConfig:
+  factory:
+    extensions:
+      oh-my-droid:
+        droids:
+          analyst: inherit
+        prune: false
+"""
+    registry = load_registry_text(text)
+    extension = registry.client_component("factory", COMPONENT)
+    assert extension is not None
+    assert extension["droids"]["analyst"] == InheritReference()
+
+
+def test_registry_rejects_provider_with_inherit_model() -> None:
+    text = """\
+specVersion: "0.1"
+providers:
+  router:
+    name: Router
+    targets: [factory]
+    baseUrl: https://router.example/v1
+    apiKey: env.ROUTER_KEY
+    enabled: true
+    models:
+      primary:
+        displayName: Primary
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+clientConfig:
+  factory:
+    extensions:
+      oh-my-droid:
+        droids:
+          analyst: {provider: router, model: inherit}
+        prune: false
+"""
+    with pytest.raises(RegistryValidationError, match="inherit.*must omit provider"):
+        load_registry_text(text)
+
+
+def test_registry_rejects_inherit_in_factory_defaults() -> None:
+    text = """\
+specVersion: "0.1"
+providers:
+  router:
+    name: Router
+    targets: [factory]
+    baseUrl: https://router.example/v1
+    apiKey: env.ROUTER_KEY
+    enabled: true
+    models:
+      primary:
+        displayName: Primary
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+clientConfig:
+  factory:
+    core:
+      defaults:
+        worker: inherit
+        thinker: {provider: router, model: primary}
+        orchestrator: {provider: router, model: primary}
+        simple: {provider: router, model: primary}
+        validator: {provider: router, model: primary}
+"""
+    with pytest.raises(RegistryValidationError, match="defaults.worker"):
+        load_registry_text(text)
+
+
+def test_plan_writes_inherit_frontmatter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home, plugin_droids, source = _fixture_tree(tmp_path, monkeypatch)
+    plan = oh_my_droid.adapter.plan(
+        _context({"droids": {"analyst": InheritReference()}, "prune": False}),
+        None,
+        _snapshots(home, plugin_droids, source),
+        {},
+    )
+    assert len(plan.artifacts) == 1
+    assert plan.artifacts[0].planned == (b"---\nname: Analyst\nmodel: inherit\n---\n\n# preserve\n")
+
+
+def test_validate_accepts_inherit_droid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _fixture_tree(tmp_path, monkeypatch)
+    context = AdapterValidationContext(
+        "factory",
+        COMPONENT,
+        lambda reference: pytest.fail("inherit must not resolve a model reference"),
+    )
+    oh_my_droid.adapter.validate(
+        {"droids": {"analyst": InheritReference()}, "prune": False}, context
+    )
+
+
+def test_plan_inherit_tracks_hash_and_detects_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home, plugin_droids, source = _fixture_tree(tmp_path, monkeypatch)
+    first = oh_my_droid.adapter.plan(
+        _context({"droids": {"analyst": InheritReference()}, "prune": False}),
+        None,
+        _snapshots(home, plugin_droids, source),
+        {},
+    )
+    assert first.ownership["droidNames"] == ("analyst",)
+    assert (
+        first.ownership["droidHashes"]["analyst"]
+        == hashlib.sha256(b"---\nname: Analyst\nmodel: inherit\n---\n\n# preserve\n").hexdigest()
+    )
+
+    drifted = b"---\nname: Analyst\nmodel: custom:other--router\n---\n\n# preserve\n"
+    with pytest.raises(AdapterPlanError, match="drifted"):
+        oh_my_droid.adapter.plan(
+            _context({"droids": {"analyst": InheritReference()}, "prune": False}),
+            None,
+            _snapshots(home, plugin_droids, source, current_analyst=drifted),
+            first.ownership,
         )

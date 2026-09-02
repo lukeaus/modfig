@@ -45,7 +45,7 @@
         "droids": {
           "type": "object",
           "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
-          "additionalProperties": { "$ref": "#/$defs/modelReference" }
+          "additionalProperties": { "$ref": "#/$defs/ohMyDroidDroidSelection" }
         },
         "prune": { "type": "boolean", "default": false }
       }
@@ -126,6 +126,20 @@
         "provider": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" },
         "model": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" }
       }
+    },
+    "ohMyDroidDroidSelection": {
+      "oneOf": [
+        { "$ref": "#/$defs/modelReference" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model"],
+          "properties": {
+            "model": { "const": "inherit" }
+          }
+        },
+        { "const": "inherit" }
+      ]
     },
     "factoryModelSelection": {
       "oneOf": [

@@ -81,7 +81,14 @@ class FactoryNativeReference:
     identifier: str
 
 
-ModelSelection: TypeAlias = ModelReference | FactoryNativeReference
+@dataclass(frozen=True)
+class InheritReference:
+    """Sentinel selection: emit the client's default inherit marker verbatim."""
+
+    inherit_marker: str = "inherit"
+
+
+ModelSelection: TypeAlias = ModelReference | FactoryNativeReference | InheritReference
 
 
 @dataclass(frozen=True)
@@ -386,7 +393,12 @@ def _parse_oh_my_droid_extension(
         droid_location = f"{location}.droids.{name}"
         if not isinstance(name, str) or not LOGICAL_ID_RE.fullmatch(name):
             issues.append(f"{droid_location} name must match {LOGICAL_ID_RE.pattern!r}")
-        reference = _parse_model_selection(raw_reference, droid_location, False, issues)
+        if raw_reference == "inherit":
+            droids[name] = InheritReference()
+            continue
+        reference = _parse_model_selection(
+            raw_reference, droid_location, False, issues, allow_inherit=True
+        )
         if reference is not None:
             droids[name] = reference
     raw_prune = value.get("prune", False)
@@ -473,23 +485,35 @@ def _parse_factory_section(
 
 
 def _parse_model_selection(
-    raw: Any, location: str, allow_factory_native: bool, issues: list[str]
+    raw: Any,
+    location: str,
+    allow_factory_native: bool,
+    issues: list[str],
+    *,
+    allow_inherit: bool = False,
 ) -> ModelSelection | None:
     value = _mapping(raw, location, issues)
     if set(value) == {"provider", "model"}:
+        if value.get("model") == "inherit":
+            issues.append(
+                f"{location} model 'inherit' must omit provider; "
+                "use {model: inherit} or the scalar inherit"
+            )
+            return None
         provider_key = _required_string(value, "provider", location, issues)
         model_name = _required_string(value, "model", location, issues)
         return ModelReference(provider_key, model_name) if provider_key and model_name else None
+    if set(value) == {"model"} and allow_inherit and value.get("model") == "inherit":
+        return InheritReference()
     if set(value) == {"factoryNative"}:
         identifier = _required_string(value, "factoryNative", location, issues)
         if not allow_factory_native:
             issues.append(f"{location}.factoryNative is not allowed in Factory defaults")
             return None
         return FactoryNativeReference(identifier) if identifier else None
-    issues.append(
-        f"{location} must contain exactly provider and model"
-        + (" or exactly factoryNative" if allow_factory_native else "")
-    )
+    suffix = " or exactly factoryNative" if allow_factory_native else ""
+    suffix += " or model: inherit" if allow_inherit else ""
+    issues.append(f"{location} must contain exactly provider and model{suffix}")
     return None
 
 
