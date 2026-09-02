@@ -16,7 +16,7 @@ Declarative AI model configuration for clients
 
 ModFig keeps LLM providers, models, endpoints, capabilities, and target
 identities in one owner-only YAML registry. It validates and synchronizes that
-registry to Factory Droids, Visual Studio Code, and Codex.
+registry to Factory Droid, Visual Studio Code, and Codex.
 
 ```text
 registry.yaml -> ModFig -> Factory | VS Code | Codex
@@ -120,7 +120,7 @@ providers:
 ## Target guides
 
 - [Codex/ChatGPT](docs/targets/codex.md)
-- [Factory Droids](docs/targets/factory.md)
+- [Factory Droid](docs/targets/factory.md)
 - [Visual Studio Code](docs/targets/vscode.md)
 
 ## Architecture and safety
