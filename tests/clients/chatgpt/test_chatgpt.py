@@ -76,16 +76,16 @@ def registry_text() -> str:
     )
 
 
-def surplus_registry_text() -> str:
+def openrouter_registry_text() -> str:
     return textwrap.dedent(
         """\
         specVersion: "0.1"
         providers:
-          surplus:
-            name: Surplus Intelligence
+          openrouter:
+            name: OpenRouter
             targets: [factory, chatgpt]
-            baseUrl: https://api.surplusintelligence.ai/v1
-            apiKey: env.SURPLUS_API_KEY
+            baseUrl: https://openrouter.ai/api/v1
+            apiKey: env.OPENROUTER_API_KEY
             provider: generic-chat-completion-api
             enabled: true
             extensions:
@@ -93,7 +93,7 @@ def surplus_registry_text() -> str:
                 wireApi: responses
                 default: true
             models:
-              gpt-5.6-sol:
+              gpt-5-mini:
                 displayName: GPT-5.6 Sol
                 contextWindow: 1048576
                 maxOutputTokens: 128000
@@ -602,30 +602,30 @@ def test_chatgpt_adapter_isolates_provider_profiles_and_selects_default_for_base
     tmp_path: Path,
 ) -> None:
     codex_home, config, executable = _codex_fixture(tmp_path)
-    surplus = replace(
-        _resolved_chatgpt_model(),
-        provider_key="surplus",
-        base_url="https://surplus.example/v1",
-        api_key_reference="env.SURPLUS_KEY",
-        model="gpt-5.6-luna",
-        display_name="GPT-5.6 Luna [Surplus]",
-        factory_id="custom:gpt-5.6-luna--surplus",
-        chatgpt_provider_id="modfig-surplus",
-        chatgpt_catalog_id="gpt-5.6-luna",
-        provider_name="Surplus",
-        chatgpt_default=True,
-    )
     openrouter = replace(
         _resolved_chatgpt_model(),
         provider_key="openrouter",
-        base_url="https://openrouter.ai/api/v1",
+        base_url="https://openrouter.example/v1",
         api_key_reference="env.OPEN_ROUTER_API_KEY",
+        model="gpt-5-mini",
+        display_name="GPT-5.6 Luna [OpenRouter]",
+        factory_id="custom:gpt-5-mini--openrouter",
+        chatgpt_provider_id="modfig-openrouter",
+        chatgpt_catalog_id="gpt-5-mini",
+        provider_name="OpenRouter",
+        chatgpt_default=True,
+    )
+    openai = replace(
+        _resolved_chatgpt_model(),
+        provider_key="openai",
+        base_url="https://api.openai.com/v1",
+        api_key_reference="env.OPENAI_API_KEY",
         model="deepseek/deepseek-v4-pro",
         display_name="DeepSeek V4 Pro [OpenRouter]",
-        factory_id="custom:deepseek-deepseek-v4-pro--openrouter",
-        chatgpt_provider_id="modfig-openrouter",
+        factory_id="custom:deepseek-deepseek-v4-pro--openai",
+        chatgpt_provider_id="modfig-openai",
         chatgpt_catalog_id="deepseek/deepseek-v4-pro",
-        provider_name="OpenRouter",
+        provider_name="[OI]",
     )
     source = b'[marketplaces.openai-bundled]\nsource = "local"\n'
     proof = RuntimeProof(
@@ -641,48 +641,50 @@ def test_chatgpt_adapter_isolates_provider_profiles_and_selects_default_for_base
     )
 
     plan = adapter.plan(
-        AdapterPlanContext("chatgpt", "core", models=(surplus, openrouter)),
+        AdapterPlanContext("chatgpt", "core", models=(openrouter, openai)),
         proof,
         {
-            _profile_identity("surplus"): AbsentDestination(),
             _profile_identity("openrouter"): AbsentDestination(),
-            ArtifactIdentity(
-                "chatgpt-home", PurePosixPath("modfig-surplus-catalog.json")
-            ): AbsentDestination(),
+            _profile_identity("openai"): AbsentDestination(),
             ArtifactIdentity(
                 "chatgpt-home", PurePosixPath("modfig-openrouter-catalog.json")
+            ): AbsentDestination(),
+            ArtifactIdentity(
+                "chatgpt-home", PurePosixPath("modfig-openai-catalog.json")
             ): AbsentDestination(),
             _base_identity(): source,
         },
         {},
     )
 
-    planned_surplus = plan.artifacts[0].planned
-    planned_surplus_catalog = plan.artifacts[1].planned
-    planned_openrouter = plan.artifacts[2].planned
-    planned_openrouter_catalog = plan.artifacts[3].planned
+    planned_openrouter = plan.artifacts[0].planned
+    planned_openrouter_catalog = plan.artifacts[1].planned
+    planned_openrouter = plan.artifacts[0].planned
+    planned_openrouter_catalog = plan.artifacts[1].planned
+    planned_openai = plan.artifacts[2].planned
+    planned_openai_catalog = plan.artifacts[3].planned
     planned_base = plan.artifacts[4].planned
-    assert isinstance(planned_surplus, bytes)
-    assert isinstance(planned_surplus_catalog, bytes)
     assert isinstance(planned_openrouter, bytes)
     assert isinstance(planned_openrouter_catalog, bytes)
+    assert isinstance(planned_openai, bytes)
+    assert isinstance(planned_openai_catalog, bytes)
     assert isinstance(planned_base, bytes)
-    assert b"[model_providers.modfig-surplus]" in planned_surplus
-    assert b"[model_providers.modfig-openrouter]" not in planned_surplus
     assert b"[model_providers.modfig-openrouter]" in planned_openrouter
-    assert b"[model_providers.modfig-surplus]" not in planned_openrouter
-    assert b'model_provider = "modfig-surplus"' in planned_surplus
-    assert b'model = "gpt-5.6-luna"' in planned_surplus
+    assert b"[model_providers.modfig-openai]" not in planned_openrouter
+    assert b"[model_providers.modfig-openai]" in planned_openai
+    assert b"[model_providers.modfig-openrouter]" not in planned_openai
     assert b'model_provider = "modfig-openrouter"' in planned_openrouter
-    assert b'model = "deepseek/deepseek-v4-pro"' in planned_openrouter
-    assert json.loads(planned_surplus_catalog.decode())["models"][0]["slug"] == "gpt-5.6-luna"
-    assert json.loads(planned_openrouter_catalog.decode())["models"][0]["slug"] == (
+    assert b'model = "gpt-5-mini"' in planned_openrouter
+    assert b'model_provider = "modfig-openai"' in planned_openai
+    assert b'model = "deepseek/deepseek-v4-pro"' in planned_openai
+    assert json.loads(planned_openrouter_catalog.decode())["models"][0]["slug"] == "gpt-5-mini"
+    assert json.loads(planned_openai_catalog.decode())["models"][0]["slug"] == (
         "deepseek/deepseek-v4-pro"
     )
-    assert b"[model_providers.modfig-surplus]" in planned_base
-    assert b"[model_providers.modfig-openrouter]" not in planned_base
-    assert b'model_provider = "modfig-surplus"' in planned_base
-    assert b'model = "gpt-5.6-luna"' in planned_base
+    assert b"[model_providers.modfig-openrouter]" in planned_base
+    assert b"[model_providers.modfig-openai]" not in planned_base
+    assert b'model_provider = "modfig-openrouter"' in planned_base
+    assert b'model = "gpt-5-mini"' in planned_base
     assert b"[marketplaces.openai-bundled]" in planned_base
 
 
@@ -691,11 +693,11 @@ def two_provider_registry_text() -> str:
         """\
         specVersion: "0.1"
         providers:
-          surplus:
-            name: Surplus
+          openrouter:
+            name: OpenRouter
             targets: [chatgpt]
-            baseUrl: https://surplus.example/v1
-            apiKey: env.SURPLUS_KEY
+            baseUrl: https://openrouter.example/v1
+            apiKey: env.OPEN_ROUTER_API_KEY
             provider: generic-chat-completion-api
             enabled: true
             extensions:
@@ -703,7 +705,7 @@ def two_provider_registry_text() -> str:
                 wireApi: responses
                 default: true
             models:
-              gpt-5.6-sol:
+              gpt-5-mini:
                 displayName: GPT-5.6 Sol
                 contextWindow: 1000000
                 maxOutputTokens: 64000
@@ -728,14 +730,14 @@ def two_provider_registry_text() -> str:
 def test_project_chatgpt_catalog_labels_provider_and_keeps_wire_ids() -> None:
     catalog = project_chatgpt_catalog(
         load_registry_text(two_provider_registry_text()),
-        {"SURPLUS_KEY": "present", "ROUTER_KEY": "present"},
+        {"OPEN_ROUTER_API_KEY": "present", "ROUTER_KEY": "present"},
     )
 
     document = json.loads(catalog.decode("utf-8"))
     assert set(document) == {"models"}
     entries = document["models"]
-    assert [entry["slug"] for entry in entries] == ["gpt-5.6-sol", "router-sol"]
-    assert entries[0]["display_name"] == "GPT-5.6 Sol [Surplus]"
+    assert [entry["slug"] for entry in entries] == ["gpt-5-mini", "router-sol"]
+    assert entries[0]["display_name"] == "GPT-5.6 Sol [OpenRouter]"
     assert entries[1]["display_name"] == "GPT-5.6 Sol [OpenRouter]"
     assert entries[0]["context_window"] == 1000000
     assert entries[0]["priority"] == 0
@@ -1127,18 +1129,18 @@ def test_project_chatgpt_providers_emits_only_safe_references_and_enabled_models
 
 def test_project_chatgpt_providers_allows_factory_generic_with_responses_opt_in() -> None:
     providers = project_chatgpt_providers(
-        load_registry_text(surplus_registry_text()),
-        {"SURPLUS_API_KEY": "present"},
+        load_registry_text(openrouter_registry_text()),
+        {"OPENROUTER_API_KEY": "present"},
     )
 
     assert providers == (
         {
-            "id": "modfig-surplus",
-            "name": "Surplus Intelligence",
-            "base_url": "https://api.surplusintelligence.ai/v1",
-            "env_key": "SURPLUS_API_KEY",
+            "id": "modfig-openrouter",
+            "name": "OpenRouter",
+            "base_url": "https://openrouter.ai/api/v1",
+            "env_key": "OPENROUTER_API_KEY",
             "wire_api": "responses",
-            "models": ["gpt-5.6-sol"],
+            "models": ["gpt-5-mini"],
         },
     )
 

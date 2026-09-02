@@ -22,8 +22,8 @@ Declare reasoning support on the model:
 
 ```yaml
 models:
-  gpt-5.6-luna:
-    displayName: GPT-5.6 Luna [Surplus]
+  gpt-5-mini:
+    displayName: GPT-5.6 Luna [OpenRouter]
     extensions:
       vscode:
         reasoningLevels: [low, medium, high, xhigh, max]
@@ -42,7 +42,7 @@ quota or payment error does not test a ModFig key. Select the custom provider
 and model in the Chat model picker, for example:
 
 ```text
-Surplus → GPT-5.6 Luna [Surplus]
+OpenRouter → GPT-5.6 Luna [OpenRouter]
 ```
 
 ## Safe apply workflow

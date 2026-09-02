@@ -214,7 +214,7 @@ def test_probe_noop_for_anthropic_without_explicit_override() -> None:
         "  router:\n"
         "    name: Router\n"
         "    targets: [factory]\n"
-        "    baseUrl: https://api.surplusintelligence.ai/v1\n"
+        "    baseUrl: https://openrouter.ai/api/v1\n"
         "    apiKey: env.ROUTER_KEY\n"
         "    provider: anthropic\n"
         "    enabled: true\n"
@@ -336,11 +336,11 @@ def _anthropic_factory_registry(base_url: str, *, model: str = "claude-model") -
     return (
         f'specVersion: "0.1"\n'
         f"providers:\n"
-        f"  surplus:\n"
-        f"    name: Surplus\n"
+        f"  openrouter:\n"
+        f"    name: OpenRouter\n"
         f"    targets: [factory]\n"
-        f"    baseUrl: https://api.surplusintelligence.ai/v1\n"
-        f"    apiKey: env.SURPLUS_KEY\n"
+        f"    baseUrl: https://openrouter.ai/api/v1\n"
+        f"    apiKey: env.OPEN_ROUTER_API_KEY\n"
         f"    provider: anthropic\n"
         f"    enabled: true\n"
         f"    models:\n"
@@ -360,9 +360,9 @@ def test_probe_anthropic_override_hits_messages_endpoint() -> None:
         url = f"http://127.0.0.1:{server.server_address[1]}/anthropic"
         registry = load_registry_text(_anthropic_factory_registry(url))
 
-        probed = probe_factory_models(registry, {"SURPLUS_KEY": KEY_SENTINEL})
+        probed = probe_factory_models(registry, {"OPEN_ROUTER_API_KEY": KEY_SENTINEL})
 
-    assert probed == (("surplus", "claude-model"),)
+    assert probed == (("openrouter", "claude-model"),)
     assert len(server.requests) == 1
     assert server.requests[0]["path"] == "/anthropic/v1/messages"
     assert server.requests[0]["x_api_key"] == KEY_SENTINEL
@@ -379,7 +379,7 @@ def test_probe_anthropic_override_rejects_unusable_messages_output() -> None:
         url = f"http://127.0.0.1:{server.server_address[1]}/anthropic"
         registry = load_registry_text(_anthropic_factory_registry(url))
         with pytest.raises(AppError, match="unusable response output"):
-            probe_factory_models(registry, {"SURPLUS_KEY": KEY_SENTINEL})
+            probe_factory_models(registry, {"OPEN_ROUTER_API_KEY": KEY_SENTINEL})
 
     assert server.requests[0]["path"] == "/anthropic/v1/messages"
 
@@ -389,11 +389,11 @@ def test_probe_anthropic_override_fails_closed_without_leaking_body() -> None:
         url = f"http://127.0.0.1:{server.server_address[1]}/anthropic"
         registry = load_registry_text(_anthropic_factory_registry(url))
         with pytest.raises(AppError) as exc_info:
-            probe_factory_models(registry, {"SURPLUS_KEY": KEY_SENTINEL})
+            probe_factory_models(registry, {"OPEN_ROUTER_API_KEY": KEY_SENTINEL})
 
     message = exc_info.value.message
     assert "Messages probe failed" in message
-    assert "surplus" in message and "claude-model" in message
+    assert "openrouter" in message and "claude-model" in message
     assert "non-200" in message and "503" in message
     assert KEY_SENTINEL not in message
     assert BODY_SENTINEL.decode() not in message
@@ -677,11 +677,11 @@ def test_apply_persists_factory_providers_and_passthroughs(
         config,
         'specVersion: "0.1"\n'
         "providers:\n"
-        "  surplus:\n"
-        "    name: Surplus\n"
+        "  openrouter:\n"
+        "    name: OpenRouter\n"
         "    targets: [factory]\n"
-        "    baseUrl: https://api.surplusintelligence.ai/v1\n"
-        "    apiKey: env.SURPLUS_KEY\n"
+        "    baseUrl: https://openrouter.ai/api/v1\n"
+        "    apiKey: env.OPEN_ROUTER_API_KEY\n"
         "    provider: generic-chat-completion-api\n"
         "    enabled: true\n"
         "    models:\n"

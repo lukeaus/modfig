@@ -1,0 +1,3 @@
+# ponytail: default rules only; add targeted allowlist entries if fake test fixtures trip them
+[extend]
+useDefault = true

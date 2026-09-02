@@ -372,13 +372,13 @@ def test_model_base_url_override_resolves_per_model() -> None:
             targets="[factory]",
             enabled="true",
             provider_protocol="anthropic",
-            model_base_url="https://api.surplusintelligence.ai/anthropic",
+            model_base_url="https://api.anthropic.com",
         )
     )
     provider = registry.providers[0]
     model = provider.models[0]
-    assert model.base_url_override == "https://api.surplusintelligence.ai/anthropic"
-    assert provider.resolved_base_url(model) == "https://api.surplusintelligence.ai/anthropic"
+    assert model.base_url_override == "https://api.anthropic.com"
+    assert provider.resolved_base_url(model) == "https://api.anthropic.com"
     # regression: models without an override keep the provider baseUrl
     fallback = load_registry_text(
         _probe_registry(targets="[factory]", enabled="true", provider_protocol="anthropic")
@@ -457,11 +457,11 @@ def test_chatgpt_generic_provider_can_opt_into_responses_transport() -> None:
             """\
             specVersion: "0.1"
             providers:
-              surplus:
-                name: Surplus
+              openrouter:
+                name: OpenRouter
                 targets: [factory, chatgpt]
-                baseUrl: https://api.surplusintelligence.ai/v1
-                apiKey: env.SURPLUS_API_KEY
+                baseUrl: https://openrouter.ai/api/v1
+                apiKey: env.OPENROUTER_API_KEY
                 provider: generic-chat-completion-api
                 enabled: true
                 extensions:
@@ -469,7 +469,7 @@ def test_chatgpt_generic_provider_can_opt_into_responses_transport() -> None:
                     wireApi: responses
                     default: true
                 models:
-                  gpt-5.6-sol:
+                  gpt-5-mini:
                     displayName: GPT-5.6 Sol
                     contextWindow: 1048576
                     maxOutputTokens: 128000
@@ -714,12 +714,12 @@ def test_factory_extension_rejects_unknown_fields() -> None:
 
 
 def test_factory_extension_accepts_providers_and_passthroughs() -> None:
-    # VAL-PIN-001: extensions.factory carries the Surplus provider-pinning
+    # VAL-PIN-001: extensions.factory carries the OpenRouter provider-pinning
     # allow-list (providers, merged as a request-body provider array) plus
     # unvalidated extraArgs/extraHeaders passthroughs.
     content = _probe_registry(
-        provider_key="surplus",
-        name="Surplus",
+        provider_key="openrouter",
+        name="OpenRouter",
         targets="[factory]",
         enabled="true",
         provider_protocol="generic-chat-completion-api",
@@ -752,8 +752,8 @@ def test_factory_extension_accepts_passthroughs_without_providers() -> None:
     # VAL-PIN-001: extraArgs-only is valid; the provider key is only merged in
     # when the providers allow-list is present.
     content = _probe_registry(
-        provider_key="surplus",
-        name="Surplus",
+        provider_key="openrouter",
+        name="OpenRouter",
         targets="[factory]",
         enabled="true",
         model_ext=(
@@ -774,8 +774,8 @@ def test_factory_extension_rejects_invalid_providers() -> None:
 
     load_registry_text(
         _probe_registry(
-            provider_key="surplus",
-            name="Surplus",
+            provider_key="openrouter",
+            name="OpenRouter",
             targets="[factory]",
             enabled="true",
             # duplicates are fine; the shape is what matters
@@ -784,8 +784,8 @@ def test_factory_extension_rejects_invalid_providers() -> None:
     )
     for bad_list in ("[]", "[openai, 5]", "[openai, '']"):
         bad_content = _probe_registry(
-            provider_key="surplus",
-            name="Surplus",
+            provider_key="openrouter",
+            name="OpenRouter",
             targets="[factory]",
             enabled="true",
             model_ext=model_ext_for(bad_list),
@@ -798,8 +798,8 @@ def test_factory_extension_accepts_any_passthrough_shape() -> None:
     # VAL-PIN-001: passthroughs are never shape- or type-checked; lists and
     # scalars flow through verbatim alongside objects.
     content = _probe_registry(
-        provider_key="surplus",
-        name="Surplus",
+        provider_key="openrouter",
+        name="OpenRouter",
         targets="[factory]",
         enabled="true",
         model_ext=(
@@ -818,8 +818,8 @@ def test_factory_extension_accepts_opaque_extra_args_values() -> None:
     # VAL-PIN-001: extraArgs values are never type-checked; arbitrary YAML/JSON
     # shapes (even NaN) flow through to the request body.
     content = _probe_registry(
-        provider_key="surplus",
-        name="Surplus",
+        provider_key="openrouter",
+        name="OpenRouter",
         targets="[factory]",
         enabled="true",
         model_ext=(
@@ -839,8 +839,8 @@ def test_factory_extension_accepts_opaque_extra_args_values() -> None:
 
 def test_vscode_extension_accepts_passthroughs() -> None:
     content = _probe_registry(
-        provider_key="surplus",
-        name="Surplus",
+        provider_key="openrouter",
+        name="OpenRouter",
         targets="[vscode]",
         enabled="true",
         model_ext=(
@@ -861,8 +861,8 @@ def test_vscode_extension_accepts_passthroughs() -> None:
 def test_vscode_extension_accepts_any_passthrough_shape() -> None:
     # VAL-PIN-001: vscode passthroughs are never shape- or type-checked.
     content = _probe_registry(
-        provider_key="surplus",
-        name="Surplus",
+        provider_key="openrouter",
+        name="OpenRouter",
         targets="[vscode]",
         enabled="true",
         model_ext=(
@@ -883,14 +883,14 @@ def test_vscode_extension_accepts_any_passthrough_shape() -> None:
 
 def test_chatgpt_provider_extension_accepts_http_headers() -> None:
     content = _probe_registry(
-        provider_key="surplus",
-        name="Surplus",
+        provider_key="openrouter",
+        name="OpenRouter",
         targets="[chatgpt]",
         enabled="true",
         provider_ext=(
             "    extensions:\n"
             "      chatgpt:\n"
-            "        providerId: modfig-surplus\n"
+            "        providerId: modfig-openrouter\n"
             "        wireApi: responses\n"
             "        default: true\n"
             "        httpHeaders:\n"
@@ -903,14 +903,14 @@ def test_chatgpt_provider_extension_accepts_http_headers() -> None:
 
 def test_chatgpt_provider_extension_rejects_non_string_http_headers() -> None:
     content = _probe_registry(
-        provider_key="surplus",
-        name="Surplus",
+        provider_key="openrouter",
+        name="OpenRouter",
         targets="[chatgpt]",
         enabled="true",
         provider_ext=(
             "    extensions:\n"
             "      chatgpt:\n"
-            "        providerId: modfig-surplus\n"
+            "        providerId: modfig-openrouter\n"
             "        wireApi: responses\n"
             "        default: true\n"
             "        httpHeaders:\n"
@@ -925,8 +925,8 @@ def test_factory_id_is_computed_and_slugified() -> None:
     # VAL-CATALOG-004: Factory model IDs are always computed as
     # custom:<slugify(model)>--<provider_key>; '/' and spaces collapse to '-'.
     content = _probe_registry(
-        provider_key="surplus",
-        name="Surplus",
+        provider_key="openrouter",
+        name="OpenRouter",
         targets="[factory]",
         enabled="true",
         model_key="OpenAI/GPT 5",
@@ -935,7 +935,7 @@ def test_factory_id_is_computed_and_slugified() -> None:
     registry = load_registry_text(content)
     model = registry.providers[0].models[0]
     assert model.model == "OpenAI/GPT 5"
-    assert model.factory_id("surplus") == "custom:openai-gpt-5--surplus"
+    assert model.factory_id("openrouter") == "custom:openai-gpt-5--openrouter"
 
 
 def test_duplicate_computed_factory_ids_are_rejected() -> None:

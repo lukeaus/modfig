@@ -93,7 +93,7 @@ remain for recovery rather than overwriting newer user state.
 
 ## Secret boundaries
 
-The registry stores only references such as `env.SURPLUS_API_KEY`. Plain
+The registry stores only references such as `env.OPENROUTER_API_KEY`. Plain
 `validate` does not resolve them. Target adapters resolve secrets only inside
 their proven mutation/preflight path:
 

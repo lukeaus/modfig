@@ -124,7 +124,7 @@ class Model:
     def factory_extra_args(self) -> Any | None:
         """Request-body extraArgs passthrough from extensions.factory, with the
         providers allow-list merged in as ``provider`` when extraArgs is an
-        object (Surplus provider pinning). Any other shape is emitted verbatim;
+        object (OpenRouter provider pinning). Any other shape is emitted verbatim;
         presence wins, so an explicitly empty ``extraArgs: {}`` survives."""
         factory_extension = self.extensions.get("factory")
         if not isinstance(factory_extension, Mapping):
@@ -806,11 +806,11 @@ def _validate_model_extensions(
     extensions: Mapping[str, Any], location: str, issues: list[str]
 ) -> None:
     # ponytail: the model-level per-target extension namespaces are thin
-    # pass-throughs. `factory.providers` is the Surplus provider-pinning
+    # pass-throughs. `factory.providers` is the OpenRouter provider-pinning
     # allow-list; `extraArgs`/`extraHeaders` on factory/vscode are unvalidated
     # request passthroughs rendered in each target's native format. Anything
     # ponytail: the model-level per-target extension namespaces are thin
-    # pass-throughs. `factory.providers` is the Surplus provider-pinning
+    # pass-throughs. `factory.providers` is the OpenRouter provider-pinning
     # allow-list (shape-checked: non-empty list of non-empty strings);
     # extraArgs/extraHeaders on factory/vscode pass through with no shape or
     # type checks at all — any YAML value is emitted verbatim in each target's
