@@ -315,15 +315,22 @@ _DIGEST_RE = re.compile(r"[0-9a-f]{64}")
 def _validate_settings(settings: object) -> dict[str, Any]:
     if not isinstance(settings, dict):
         raise AppError("Factory settings must be a JSON object")
-    models = settings.get("customModels", [])
+    result = dict(settings)
+    models = result.get("customModels")
+    if models is None:
+        models = []
+        result["customModels"] = models
     if not isinstance(models, list) or not all(
         isinstance(item, dict) and isinstance(item.get("id"), str) for item in models
     ):
         raise AppError("Factory settings customModels must be a list of objects with string ids")
-    favorites = settings.get("modelFavorites", [])
+    favorites = result.get("modelFavorites")
+    if favorites is None:
+        favorites = []
+        result["modelFavorites"] = favorites
     if not isinstance(favorites, list) or not all(isinstance(item, str) for item in favorites):
         raise AppError("Factory settings modelFavorites must be a list of strings")
-    return settings
+    return result
 
 
 def _parse_factory_settings(source: bytes) -> dict[str, Any]:
@@ -677,7 +684,8 @@ def plan_factory_models(
     shape: FactoryShape,
 ) -> FactoryPlan:
     """Replace the managed custom-model projection while preserving other settings."""
-    existing_models = _validate_settings(dict(settings)).get("customModels", [])
+    validated = _validate_settings(dict(settings))
+    existing_models = validated.get("customModels", [])
     model_ids = [item["id"] for item in existing_models]
     duplicate = next((item for item in model_ids if model_ids.count(item) > 1), None)
     if duplicate is not None:
@@ -706,13 +714,16 @@ def plan_factory_models(
         existing_models, generated, managed_model_ids, lambda item: item["id"]
     )
     generated_favorites = tuple(model.factory_id for model in models_snapshot if model.favourite)
-    managed_favorite_ids = set(owned_favorite_ids) | {
+    existing_favorites = validated.get("modelFavorites", [])
+    # ponytail: managed favorites only ever include custom: model IDs; native
+    # Factory models are untouched.
+    managed_favorite_ids = {
         favorite
-        for favorite in settings.get("modelFavorites", [])
+        for favorite in set(owned_favorite_ids) | set(existing_favorites)
         if favorite.startswith("custom:")
     }
     merged_favorites = _merge_favorites(
-        settings.get("modelFavorites", []), generated_favorites, managed_favorite_ids
+        existing_favorites, generated_favorites, managed_favorite_ids
     )
     planned_settings = dict(settings)
     planned_settings["customModels"] = list(merged_models)

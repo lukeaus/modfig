@@ -910,3 +910,99 @@ def test_factory_projection_emits_declared_openai_transport_for_gpt_models(
         registry, UnreadableSecrets(), {"customModels": [{"id": "foreign", "provider": "openai"}]}
     )
     assert models[0]["provider"] == "openai"
+
+
+def test_factory_favorites_add_and_remove_custom_while_preserving_native_models() -> None:
+    registry_yaml = textwrap.dedent(
+        """\
+        specVersion: "0.1"
+        providers:
+          router:
+            name: Router
+            targets: [factory]
+            baseUrl: https://router.example/v1
+            apiKey: env.ROUTER_KEY
+            enabled: true
+            models:
+              fav-model:
+                displayName: Favorite Model
+                contextWindow: 8192
+                maxOutputTokens: 1024
+                favourite: true
+                enabled: true
+              non-fav-model:
+                displayName: Non-Favorite Model
+                contextWindow: 8192
+                maxOutputTokens: 1024
+                favourite: false
+                enabled: true
+        """
+    )
+    registry = load_registry_text(registry_yaml)
+    settings = {
+        "customModels": [],
+        "modelFavorites": [
+            "claude-3-7-sonnet",
+            "gpt-4o",
+            "custom:non-fav-model--router",
+            "custom:stale--router",
+        ],
+    }
+    plan = plan_factory(
+        registry,
+        settings,
+        owned_model_ids=set(),
+        owned_favorite_ids={"claude-3-7-sonnet", "custom:non-fav-model--router"},
+        secrets=UnreadableSecrets(),
+    )
+    # Native models (claude-3-7-sonnet, gpt-4o) are preserved.
+    # fav-model is added because favourite: true.
+    # non-fav-model and stale are removed because they are not favourite.
+    assert plan.settings["modelFavorites"] == [
+        "claude-3-7-sonnet",
+        "gpt-4o",
+        "custom:fav-model--router",
+    ]
+    assert plan.owned_favorite_ids == frozenset({"custom:fav-model--router"})
+
+
+def test_factory_favorites_handles_null_or_missing_in_settings() -> None:
+    registry_yaml = textwrap.dedent(
+        """\
+        specVersion: "0.1"
+        providers:
+          router:
+            name: Router
+            targets: [factory]
+            baseUrl: https://router.example/v1
+            apiKey: env.ROUTER_KEY
+            enabled: true
+            models:
+              primary:
+                displayName: Primary
+                contextWindow: 8192
+                maxOutputTokens: 1024
+                favourite: true
+                enabled: true
+        """
+    )
+    registry = load_registry_text(registry_yaml)
+    # Missing modelFavorites key
+    plan_missing = plan_factory(
+        registry,
+        {"customModels": []},
+        owned_model_ids=set(),
+        owned_favorite_ids=set(),
+        secrets=UnreadableSecrets(),
+    )
+    assert plan_missing.settings["modelFavorites"] == ["custom:primary--router"]
+
+    # Explicit null modelFavorites
+    plan_null = plan_factory(
+        registry,
+        {"customModels": None, "modelFavorites": None},
+        owned_model_ids=set(),
+        owned_favorite_ids=set(),
+        secrets=UnreadableSecrets(),
+    )
+    assert plan_null.settings["modelFavorites"] == ["custom:primary--router"]
