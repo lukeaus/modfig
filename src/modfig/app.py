@@ -1010,7 +1010,7 @@ def _apply_transaction(
             else:
                 plan = adapter.plan(plan_context, proof, snapshots, ownership)
             validate_plan_against_declarations(plan, declaration, plan_context)
-            if not plan.artifacts:
+            if not plan.artifacts and component == "core":
                 raise AppError("transaction requires at least one artifact per client component")
             _validate_external_owned_artifact(route, record, plan, snapshots)
             for artifact in plan.artifacts:

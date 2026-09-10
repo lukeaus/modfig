@@ -7,6 +7,7 @@ import json
 import os
 import re
 import stat
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -312,8 +313,6 @@ def _plugin_paths_from_snapshots(
         if relative.stem in paths and paths[relative.stem] != relative:
             raise AdapterPlanError(f"duplicate oh-my-droid plugin droid {relative.stem!r}")
         paths[relative.stem] = relative
-    if not paths:
-        raise AdapterPlanError("oh-my-droid plugin has no droid definitions")
     return paths
 
 
@@ -374,7 +373,7 @@ def _inventory_roots(inventory: bytes | AbsentDestination, root: Path) -> tuple[
         raise AdapterPlanError("oh-my-droid installed plugin inventory has no plugins map")
     entries = plugins.get("oh-my-droid@oh-my-droid")
     if not isinstance(entries, list):
-        raise AdapterPlanError("oh-my-droid plugin is not installed")
+        return ()
     roots: list[Path] = []
     for entry in entries:
         if not isinstance(entry, Mapping) or not isinstance(entry.get("installPath"), str):
@@ -397,7 +396,7 @@ def _inventory_roots(inventory: bytes | AbsentDestination, root: Path) -> tuple[
             raise AdapterPlanError("oh-my-droid plugin droids directory is unsafe")
         roots.append(droids)
     if not roots:
-        raise AdapterPlanError("oh-my-droid plugin droids directory is unavailable")
+        return ()
     return tuple(dict.fromkeys(roots))
 
 
@@ -418,8 +417,6 @@ def _plugin_droid_paths(
             if source.stem in paths and paths[source.stem] != relative:
                 raise AdapterPlanError(f"duplicate oh-my-droid plugin droid {source.stem!r}")
             paths[source.stem] = relative
-    if not paths:
-        raise AdapterPlanError("oh-my-droid plugin has no droid definitions")
     return paths
 
 
@@ -571,6 +568,11 @@ class OhMyDroidAdapter:
             except (AppError, ValueError) as exc:
                 raise AdapterPlanError(f"oh-my-droid droid {name!r}: {exc}") from exc
         paths = _plugin_droid_paths(_inventory_snapshot(_plugin_root()), _plugin_root())
+        if not paths:
+            warnings.warn(
+                "oh-my-droid plugin is not installed; skipping", UserWarning, stacklevel=2
+            )
+            return
         missing = sorted(set(droids) - set(paths))
         if missing:
             raise AdapterPlanError(f"oh-my-droid droids are not installed: {', '.join(missing)}")
@@ -609,6 +611,18 @@ class OhMyDroidAdapter:
         droids, prune = _config_droids(config) if config else ({}, False)
         _inventory_from_snapshots(snapshots)
         plugin_paths = _plugin_paths_from_snapshots(snapshots)
+        if not plugin_paths:
+            warnings.warn(
+                "oh-my-droid plugin is not installed; skipping", UserWarning, stacklevel=2
+            )
+            return ArtifactPlan(
+                (),
+                {
+                    "droidNames": sorted(_owned_names(ownership)),
+                    "droidHashes": dict(_owned_hashes(ownership)),
+                    "pluginDerivedNames": sorted(_owned_plugin_derived_names(ownership)),
+                },
+            )
         source_by_name: dict[str, bytes] = {}
         for name, relative in plugin_paths.items():
             source = snapshots.get(ArtifactIdentity(PLUGIN_GRANT, relative))

@@ -57,7 +57,7 @@ Factory `core` is built in and accepts only `defaults`, `session`, and `mission`
 `defaults` requires exactly `worker`, `thinker`, `orchestrator`, `simple`, and
 `validator`, each an exact `{provider, model}` portable reference. Session and
 mission model fields accept portable references or exact `{factoryNative: <non-empty-id>}` references.
-Reasoning effort is one of `off`, `none`, `low`, `medium`, `high`, or `max`.
+Reasoning effort is one of `off`, `none`, `low`, `medium`, `high`, `xhigh`, or `max`.
 The Factory adapter projects each configured `session` field to both Factory's
 runtime session table and its `sessionDefaultSettings` TUI-default table.
 Existing `sessionDefaultSettings` values are adopted only when the

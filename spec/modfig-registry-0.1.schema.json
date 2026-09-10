@@ -116,7 +116,7 @@
       }
     },
     "reasoningEffort": {
-      "enum": ["off", "none", "low", "medium", "high", "max"]
+      "enum": ["off", "none", "low", "medium", "high", "xhigh", "max"]
     },
     "modelReference": {
       "type": "object",

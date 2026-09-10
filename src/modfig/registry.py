@@ -14,7 +14,7 @@ from .storage import read_private_text
 
 SUPPORTED_SPEC_VERSIONS: Final = frozenset({"0.1"})
 LOGICAL_ID_RE: Final = re.compile(r"^[a-z][a-z0-9-]*$")
-REASONING_EFFORTS: Final = frozenset({"off", "none", "low", "medium", "high", "max"})
+REASONING_EFFORTS: Final = frozenset({"off", "none", "low", "medium", "high", "xhigh", "max"})
 PROVIDER_PROTOCOLS: Final = frozenset({"openai", "anthropic", "generic-chat-completion-api"})
 API_KEY_REFERENCE_RE: Final = re.compile(r"^env\.[A-Za-z_][A-Za-z0-9_]*$")
 PROVIDER_KEY_RE: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
