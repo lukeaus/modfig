@@ -628,7 +628,9 @@ def test_plan_inherit_tracks_hash_and_detects_drift(
         )
 
 
-def test_missing_plugin_warns_and_continues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_plugin_warns_and_continues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     home = tmp_path / "home"
     monkeypatch.setattr(oh_my_droid.Path, "home", staticmethod(lambda: home))
     context = AdapterValidationContext(
@@ -650,8 +652,11 @@ def test_missing_plugin_warns_and_continues(tmp_path: Path, monkeypatch: pytest.
             _context({"droids": {"analyst": ModelReference("router", "primary")}, "prune": False}),
             None,
             {},
-            {"droidNames": ["analyst"], "droidHashes": {"analyst": "a" * 64}, "pluginDerivedNames": []},
+            {
+                "droidNames": ["analyst"],
+                "droidHashes": {"analyst": "a" * 64},
+                "pluginDerivedNames": [],
+            },
         )
     assert plan.artifacts == ()
     assert plan.ownership["droidNames"] == ("analyst",)
-

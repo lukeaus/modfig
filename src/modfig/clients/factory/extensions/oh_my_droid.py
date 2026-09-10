@@ -569,7 +569,9 @@ class OhMyDroidAdapter:
                 raise AdapterPlanError(f"oh-my-droid droid {name!r}: {exc}") from exc
         paths = _plugin_droid_paths(_inventory_snapshot(_plugin_root()), _plugin_root())
         if not paths:
-            warnings.warn("oh-my-droid plugin is not installed; skipping", UserWarning, stacklevel=2)
+            warnings.warn(
+                "oh-my-droid plugin is not installed; skipping", UserWarning, stacklevel=2
+            )
             return
         missing = sorted(set(droids) - set(paths))
         if missing:
@@ -610,7 +612,9 @@ class OhMyDroidAdapter:
         _inventory_from_snapshots(snapshots)
         plugin_paths = _plugin_paths_from_snapshots(snapshots)
         if not plugin_paths:
-            warnings.warn("oh-my-droid plugin is not installed; skipping", UserWarning, stacklevel=2)
+            warnings.warn(
+                "oh-my-droid plugin is not installed; skipping", UserWarning, stacklevel=2
+            )
             old_names = _owned_names(ownership)
             old_hashes = _owned_hashes(ownership)
             old_plugin_derived = _owned_plugin_derived_names(ownership)
