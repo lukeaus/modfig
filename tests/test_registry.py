@@ -335,6 +335,13 @@ def test_v01_rejects_invalid_factory_reasoning_effort(effort: object) -> None:
         load_registry_text(invalid)
 
 
+def test_v01_accepts_xhigh_factory_reasoning_effort() -> None:
+    registry = load_registry_text(
+        V01_FACTORY_AND_CURSOR.replace("reasoningEffort: high", "reasoningEffort: xhigh", 1)
+    )
+    assert registry.client_config["factory"].core["session"]["reasoningEffort"] == "xhigh"
+
+
 @pytest.mark.parametrize(
     "old,new",
     [
