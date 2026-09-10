@@ -626,3 +626,32 @@ def test_plan_inherit_tracks_hash_and_detects_drift(
             _snapshots(home, plugin_droids, source, current_analyst=drifted),
             first.ownership,
         )
+
+
+def test_missing_plugin_warns_and_continues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setattr(oh_my_droid.Path, "home", staticmethod(lambda: home))
+    context = AdapterValidationContext(
+        "factory",
+        COMPONENT,
+        lambda reference: _model(),
+    )
+    with pytest.warns(UserWarning, match="oh-my-droid plugin is not installed"):
+        oh_my_droid.adapter.validate(
+            {"droids": {"analyst": ModelReference("router", "primary")}, "prune": False},
+            context,
+        )
+
+    decl = oh_my_droid.adapter.preflight(AdapterContext("factory", COMPONENT))
+    assert isinstance(decl, oh_my_droid.PreflightDeclaration)
+
+    with pytest.warns(UserWarning, match="oh-my-droid plugin is not installed"):
+        plan = oh_my_droid.adapter.plan(
+            _context({"droids": {"analyst": ModelReference("router", "primary")}, "prune": False}),
+            None,
+            {},
+            {"droidNames": ["analyst"], "droidHashes": {"analyst": "a" * 64}, "pluginDerivedNames": []},
+        )
+    assert plan.artifacts == ()
+    assert plan.ownership["droidNames"] == ("analyst",)
+
