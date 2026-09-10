@@ -615,15 +615,12 @@ class OhMyDroidAdapter:
             warnings.warn(
                 "oh-my-droid plugin is not installed; skipping", UserWarning, stacklevel=2
             )
-            old_names = _owned_names(ownership)
-            old_hashes = _owned_hashes(ownership)
-            old_plugin_derived = _owned_plugin_derived_names(ownership)
             return ArtifactPlan(
                 (),
                 {
-                    "droidNames": sorted(old_names),
-                    "droidHashes": dict(old_hashes),
-                    "pluginDerivedNames": sorted(old_plugin_derived),
+                    "droidNames": sorted(_owned_names(ownership)),
+                    "droidHashes": dict(_owned_hashes(ownership)),
+                    "pluginDerivedNames": sorted(_owned_plugin_derived_names(ownership)),
                 },
             )
         source_by_name: dict[str, bytes] = {}
