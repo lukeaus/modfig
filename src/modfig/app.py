@@ -1074,7 +1074,9 @@ def _apply_transaction(
                 if isinstance(artifact.planned, bytes)
             )
             replacement = (
-                None
+                record
+                if not plan.artifacts
+                else None
                 if not owned_artifacts
                 else ComponentOwnership(
                     component,

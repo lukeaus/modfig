@@ -554,6 +554,22 @@ def _delete_pointer(settings: dict[str, Any], pointer: str) -> None:
         current.pop(tokens[-1], None)
 
 
+def _primary_valid(
+    source_key: str | None,
+    owned: Mapping[str, Any],
+    pointers: Mapping[str, str],
+    settings: Mapping[str, Any],
+) -> bool:
+    if source_key is None:
+        return False
+    primary = owned.get(source_key)
+    primary_pointer = pointers.get(source_key)
+    if primary is None or primary_pointer is None:
+        return False
+    primary_present, primary_current = _read_pointer(settings, primary_pointer)
+    return primary_present and _canonical_sha256(primary_current) == primary["writtenSha256"]
+
+
 def _plan_scalar_fields(
     plan: FactoryPlan,
     desired: Mapping[str, str],
@@ -590,26 +606,22 @@ def _plan_scalar_fields(
         value = desired[desired_key]
         present, current = _read_pointer(settings, pointer)
         if existing is not None:
-            if not present or _canonical_sha256(current) != existing["writtenSha256"]:
+            # ponytail: alias fields updated by Factory TUI or matching desired
+            # do not trigger drift when the primary field is intact.
+            if not present or (
+                _canonical_sha256(current) != existing["writtenSha256"]
+                and current != value
+                and not _primary_valid(source_key, owned, pointers, settings)
+            ):
                 raise AdapterPlanError("Factory owned field has drifted")
             before = existing["before"]
         else:
-            if present and current != value:
-                primary = owned.get(source_key) if source_key is not None else None
-                primary_pointer = pointers.get(source_key) if source_key is not None else None
-                primary_present, primary_current = (
-                    _read_pointer(settings, primary_pointer)
-                    if primary_pointer is not None
-                    else (False, None)
-                )
-                if (
-                    source_key is None
-                    or primary is None
-                    or primary_pointer is None
-                    or not primary_present
-                    or _canonical_sha256(primary_current) != primary["writtenSha256"]
-                ):
-                    raise CollisionError(pointer)
+            if (
+                present
+                and current != value
+                and not _primary_valid(source_key, owned, pointers, settings)
+            ):
+                raise CollisionError(pointer)
             before = {"kind": "json", "value": current} if present else {"kind": "absent"}
         _write_pointer(settings, pointer, value)
         fields.append(
