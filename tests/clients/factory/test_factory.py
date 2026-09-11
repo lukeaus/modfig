@@ -370,6 +370,47 @@ def test_factory_session_alias_migrates_when_primary_field_is_owned() -> None:
     }
 
 
+def test_factory_session_alias_overwrites_when_primary_is_valid_or_value_matches() -> None:
+    model = _adapter_model()
+    context = AdapterPlanContext(
+        "factory",
+        "core",
+        {"session": {"model": ModelReference("router", "primary")}},
+        (model,),
+        lambda reference: model,
+    )
+    identity = ArtifactIdentity("factory-config", PurePosixPath("settings.json"))
+    initial = adapter.plan(context, {identity: b'{"customModels":[]}'}, {})
+    owned = initial.ownership
+    written = json.loads(initial.artifacts[0].planned)
+
+    # 1. Alias field updated externally in TUI (e.g. to another model)
+    # does not trigger drift when primary is intact
+    tui_modified = dict(written)
+    tui_modified["sessionDefaultSettings"] = {"model": "custom:other--router"}
+    replan = adapter.plan(context, {identity: json.dumps(tui_modified).encode()}, owned)
+    assert (
+        json.loads(replan.artifacts[0].planned)["sessionDefaultSettings"]["model"]
+        == "custom:primary--router"
+    )
+
+    # 2. Alias field matching desired value does not trigger drift
+    matching = dict(written)
+    matching["sessionDefaultSettings"] = {"model": "custom:primary--router"}
+    replan_matching = adapter.plan(context, {identity: json.dumps(matching).encode()}, owned)
+    assert (
+        json.loads(replan_matching.artifacts[0].planned)["sessionDefaultSettings"]["model"]
+        == "custom:primary--router"
+    )
+
+    # 3. But if primary field also drifted, it raises AdapterPlanError
+    both_drifted = dict(written)
+    both_drifted["session"] = {"model": "custom:corrupted--router"}
+    both_drifted["sessionDefaultSettings"] = {"model": "custom:corrupted--router"}
+    with pytest.raises(AdapterPlanError, match="drifted"):
+        adapter.plan(context, {identity: json.dumps(both_drifted).encode()}, owned)
+
+
 def test_factory_scalar_features_coexist() -> None:
     model = _adapter_model()
     context = AdapterPlanContext(
