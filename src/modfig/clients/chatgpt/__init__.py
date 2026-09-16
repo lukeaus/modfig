@@ -5,7 +5,6 @@ import json
 import os
 import platform
 import re
-import shutil
 import subprocess
 from collections.abc import Callable, Collection, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, replace
@@ -117,10 +116,25 @@ def _proof_error(reason: str | None = None) -> CapabilityUnavailableError:
 
 
 def _codex_executable() -> Path:
+    seen: set[Path] = set()
     for name in _CHATGPT_EXECUTABLES:
-        found = shutil.which(name)
-        if found:
-            return _canonical_executable(Path(found))
+        for entry in os.environ.get("PATH", "").split(os.pathsep):
+            if not entry:
+                continue
+            candidate = Path(entry) / name
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                try:
+                    resolved = _canonical_executable(candidate)
+                except CapabilityUnavailableError:
+                    continue
+                if resolved in seen:
+                    continue
+                seen.add(resolved)
+                try:
+                    _codex_version(resolved)
+                    return resolved
+                except CapabilityUnavailableError:
+                    continue
     raise _proof_error("no codex or codex-cli executable was found on PATH")
 
 

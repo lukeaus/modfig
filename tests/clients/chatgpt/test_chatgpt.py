@@ -27,6 +27,7 @@ from modfig.adapters import (
 from modfig.clients.chatgpt import (
     ChatGPTConfigError,
     ChatGPTRuntime,
+    _codex_executable,
     _project_chatgpt_catalog,
     adapter,
     apply_chatgpt,
@@ -1529,3 +1530,25 @@ def test_apply_chatgpt_catalog_unproven_fails_before_any_mutation(tmp_path: Path
     assert path.read_bytes() == before_bytes
     assert (after.st_ino, after.st_mtime_ns) == (before.st_ino, before.st_mtime_ns)
     assert not lock_path.exists()
+
+
+def test_codex_executable_bypasses_invalid_shims(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shim_dir = tmp_path / "shims"
+    bin_dir = tmp_path / "bin"
+    shim_dir.mkdir()
+    bin_dir.mkdir()
+
+    fake_shim = shim_dir / "codex"
+    fake_shim.write_text("#!/bin/sh\necho '2026.9.9 macos-arm64'\n")
+    fake_shim.chmod(0o755)
+
+    real_bin = bin_dir / "codex"
+    real_bin.write_text("#!/bin/sh\necho 'codex-cli 0.139.0'\n")
+    real_bin.chmod(0o755)
+
+    monkeypatch.setenv("PATH", f"{shim_dir}{os.pathsep}{bin_dir}")
+
+    resolved = _codex_executable()
+    assert resolved == real_bin.resolve()
