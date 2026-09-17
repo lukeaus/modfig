@@ -39,6 +39,15 @@ variables:
   thinker: &thinker_model
     provider: openrouter
     model: gpt-5
+  orchestrator: &orchestrator_model
+    provider: openrouter
+    model: gpt-5
+  simple: &simple_model
+    provider: openrouter
+    model: gpt-5-mini
+  validator: &validator_model
+    provider: openrouter
+    model: gpt-5
 
 clientConfig:
   factory:
@@ -46,9 +55,9 @@ clientConfig:
       defaults:
         worker: *worker_model
         thinker: *thinker_model
-        orchestrator: *thinker_model
-        simple: *worker_model
-        validator: *thinker_model
+        orchestrator: *orchestrator_model
+        simple: *simple_model
+        validator: *validator_model
       session:
         model: *worker_model
         reasoningEffort: max
