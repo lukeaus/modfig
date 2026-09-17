@@ -26,33 +26,38 @@ clientConfig:
 `simple`, and `validator`. Session and mission model fields may use portable
 references or Factory-native IDs.
 
-## Sharing model references
+## Sharing role models and efforts
 
 The optional root `variables` bucket holds YAML anchors that any client
-configuration reuses through aliases, so each role model is written once:
+configuration reuses through aliases, so each role's model and reasoning
+effort are written once:
 
 ```yaml
 variables:
-  worker: &worker_model
-    provider: openrouter
-    model: gpt-5-mini
-  worker_effort: &worker_effort max
-  thinker: &thinker_model
-    provider: openrouter
-    model: gpt-5
-  thinker_effort: &thinker_effort max
-  orchestrator: &orchestrator_model
-    provider: openrouter
-    model: gpt-5
-  orchestrator_effort: &orchestrator_effort max
-  simple: &simple_model
-    provider: openrouter
-    model: gpt-5-mini
-  simple_effort: &simple_effort max
-  validator: &validator_model
-    provider: openrouter
-    model: gpt-5
-  validator_effort: &validator_effort max
+  worker:
+    model: &worker_model
+      provider: openrouter
+      model: gpt-5-mini
+    effort: &worker_effort max
+  thinker:
+    model: &thinker_model
+      provider: openrouter
+      model: gpt-5
+    effort: &thinker_effort max
+  orchestrator:
+    model: &orchestrator_model
+      provider: openrouter
+      model: gpt-5
+    effort: &orchestrator_effort max
+  simple:
+    model: &simple_model
+      provider: openrouter
+      model: gpt-5-mini
+  validator:
+    model: &validator_model
+      provider: openrouter
+      model: gpt-5
+    effort: &validator_effort max
 
 clientConfig:
   factory:
@@ -80,8 +85,10 @@ clientConfig:
 `variables` is an anchor bucket only: ModFig requires it to be a mapping and
 never interprets its content, because the YAML loader expands the aliases
 before the parser sees the values. Anchors must be defined before the first
-alias that uses them. `simple_effort` has no Factory effort slot today
-(subagent fields are model-only).
+alias that uses them. Because nothing reads the bucket, its grouping is
+free-form; nesting `model` and `effort` under each role keeps one role's
+settings together. `simple` has no effort anchor because Factory stores no
+effort for `subagent` fields, which are model-only.
 
 ## Factory TUI session default
 
