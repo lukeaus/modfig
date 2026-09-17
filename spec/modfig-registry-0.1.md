@@ -42,6 +42,7 @@ are removed only when their recorded ownership hash still matches.
 | `specVersion` | string | yes | no | none | Exactly `"0.1"`. |
 | `providers` | non-empty mapping | yes | no | none | Keys are provider identities (`^[A-Za-z0-9][A-Za-z0-9._-]*$`, excluding `--`); globally unique. Map order is projection order. |
 | `clientConfig` | mapping | no | no | `{}` | Dynamic logical-client desired state; each client may contain `core` and `extensions`. |
+| `variables` | mapping | no | no | `{}` | Optional anchor bucket for YAML aliases reusable across `clientConfig`. Must be a mapping; content is never interpreted. |
 
 Root extensions are not part of registry 0.1. YAML is parsed with a duplicate-key-aware safe loader. Duplicate keys, unsafe
 YAML tags, unknown standard-owned fields, and an empty registry are invalid.

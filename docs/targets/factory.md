@@ -26,6 +26,41 @@ clientConfig:
 `simple`, and `validator`. Session and mission model fields may use portable
 references or Factory-native IDs.
 
+## Sharing model references
+
+The optional root `variables` bucket holds YAML anchors that any client
+configuration reuses through aliases, so each role model is written once:
+
+```yaml
+variables:
+  worker: &worker_model
+    provider: openrouter
+    model: gpt-5-mini
+  thinker: &thinker_model
+    provider: openrouter
+    model: gpt-5
+
+clientConfig:
+  factory:
+    core:
+      defaults:
+        worker: *worker_model
+        thinker: *thinker_model
+        orchestrator: *thinker_model
+        simple: *worker_model
+        validator: *thinker_model
+      session:
+        model: *worker_model
+        reasoningEffort: max
+        specModeModel: *thinker_model
+        specModeReasoningEffort: max
+```
+
+`variables` is an anchor bucket only: ModFig requires it to be a mapping and
+never interprets its content, because the YAML loader expands the aliases
+before the parser sees the values. Anchors must be defined before the first
+alias that uses them.
+
 ## Factory TUI session default
 
 Factory stores session configuration in two representations. ModFig projects

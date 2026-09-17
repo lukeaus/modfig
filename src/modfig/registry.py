@@ -315,7 +315,9 @@ def load_registry_text(text: str) -> Registry:
 def _parse_registry(raw: Any) -> Registry:
     issues: list[str] = []
     root = _mapping(raw, "registry", issues)
-    _reject_unknown_fields(root, {"specVersion", "providers", "clientConfig"}, "registry", issues)
+    _reject_unknown_fields(
+        root, {"specVersion", "providers", "clientConfig", "variables"}, "registry", issues
+    )
 
     spec_version = _required_string(root, "specVersion", "registry", issues)
     if spec_version and spec_version not in SUPPORTED_SPEC_VERSIONS:
@@ -323,6 +325,10 @@ def _parse_registry(raw: Any) -> Registry:
         issues.append(f"unsupported specVersion {spec_version!r}; supported: {supported_versions}")
 
     client_config = _parse_client_config(root.get("clientConfig", {}), issues)
+    if "variables" in root:
+        # ponytail: anchor bucket only; YAML resolves the aliases, so the value
+        # is validated for shape and never interpreted.
+        _mapping(root["variables"], "registry.variables", issues)
     providers_raw = root.get("providers")
     if not isinstance(providers_raw, Mapping) or not providers_raw:
         issues.append("registry.providers must be a non-empty mapping")
