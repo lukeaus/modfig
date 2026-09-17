@@ -1128,15 +1128,17 @@ def test_registry_rejects_invalid_or_unsafe_base_urls(base_url: str) -> None:
 
 
 def test_top_level_variables_anchor_bucket_with_aliases() -> None:
-    # ponytail: one anchor definition reused across factory core via aliases.
+    # ponytail: one grouped anchor pair per role reused across factory core
+    # via aliases.
     content = textwrap.dedent(
         """\
         specVersion: "0.1"
         variables:
-          worker: &worker_model
-            provider: router
-            model: primary
-          worker_effort: &worker_effort high
+          worker:
+            model: &worker_model
+              provider: router
+              model: primary
+            effort: &worker_effort high
         providers:
           router:
             name: Router

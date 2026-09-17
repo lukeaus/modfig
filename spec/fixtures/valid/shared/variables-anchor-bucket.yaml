@@ -1,30 +1,34 @@
-# AC-13.1: the optional root `variables` bucket carries one YAML anchor per
-# Factory default role plus one reasoning-effort anchor per role; client
-# configuration reuses them through aliases. The YAML loader resolves the
+# AC-13.1: the optional root `variables` bucket carries one YAML anchor pair per
+# Factory default role, grouping the role's model and reasoning-effort anchors.
+# Client configuration reuses them through aliases. The YAML loader resolves the
 # aliases before the reference parser sees the values.
-# simple_effort is currently unused: subagent fields are model-only.
+# `simple` has no effort anchor: Factory stores no effort for subagent fields.
 specVersion: "0.1"
 variables:
-  worker: &worker_model
-    provider: router
-    model: primary
-  worker_effort: &worker_effort high
-  thinker: &thinker_model
-    provider: router
-    model: primary
-  thinker_effort: &thinker_effort max
-  orchestrator: &orchestrator_model
-    provider: router
-    model: primary
-  orchestrator_effort: &orchestrator_effort max
-  simple: &simple_model
-    provider: router
-    model: primary
-  simple_effort: &simple_effort high
-  validator: &validator_model
-    provider: router
-    model: primary
-  validator_effort: &validator_effort max
+  worker:
+    model: &worker_model
+      provider: router
+      model: primary
+    effort: &worker_effort high
+  thinker:
+    model: &thinker_model
+      provider: router
+      model: primary
+    effort: &thinker_effort max
+  orchestrator:
+    model: &orchestrator_model
+      provider: router
+      model: primary
+    effort: &orchestrator_effort max
+  simple:
+    model: &simple_model
+      provider: router
+      model: primary
+  validator:
+    model: &validator_model
+      provider: router
+      model: primary
+    effort: &validator_effort max
 providers:
   router:
     name: Router
