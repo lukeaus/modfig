@@ -115,6 +115,7 @@ class Model:
     vscode_reasoning_levels: tuple[str, ...] = ()
     vscode_default_reasoning_level: str | None = None
     base_url_override: str | None = None
+    factory_probe: bool = True
 
     def factory_id(self, provider_key: str) -> str:
         # ponytail: IDs are always derived from the model/provider keys;
@@ -654,6 +655,12 @@ def _parse_model(
     vscode_reasoning_levels, vscode_default_reasoning_level = _parse_vscode_reasoning_levels(
         extensions, location, issues
     )
+    factory_ext = extensions.get("factory")
+    factory_probe = (
+        factory_ext.get("probe", True)
+        if isinstance(factory_ext, Mapping) and isinstance(factory_ext.get("probe"), bool)
+        else True
+    )
 
     return Model(
         model=model,
@@ -672,6 +679,7 @@ def _parse_model(
         chatgpt_reasoning_levels=chatgpt_reasoning_levels,
         vscode_reasoning_levels=vscode_reasoning_levels,
         vscode_default_reasoning_level=vscode_default_reasoning_level,
+        factory_probe=factory_probe,
     )
 
 
@@ -824,7 +832,7 @@ def _validate_model_extensions(
         factory_mapping = _mapping(extensions["factory"], factory_location, issues)
         _reject_unknown_fields(
             factory_mapping,
-            {"providers", "extraArgs", "extraHeaders"},
+            {"providers", "extraArgs", "extraHeaders", "probe"},
             factory_location,
             issues,
         )
@@ -838,6 +846,8 @@ def _validate_model_extensions(
                 issues.append(
                     f"{factory_location}.providers must be a non-empty list of non-empty strings"
                 )
+        if "probe" in factory_mapping and not isinstance(factory_mapping["probe"], bool):
+            issues.append(f"{factory_location}.probe must be a boolean")
     if "vscode" in extensions:
         vscode_location = f"{location}.extensions.vscode"
         vscode_mapping = _mapping(extensions["vscode"], vscode_location, issues)

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
 
+from ... import __version__
 from ...adapters import (
     AbsentDestination,
     AdapterContext,
@@ -870,6 +871,7 @@ def probe_factory_models(
         (provider, model)
         for provider, model in registry.emitted_models("factory")
         if model.model not in exclusions
+        and model.factory_probe
         and (
             model.effective_provider == "openai"
             or (model.effective_provider == "anthropic" and model.base_url_override is not None)
@@ -907,13 +909,20 @@ def _probe_responses_one(
     payload = json.dumps({"model": model.model, "input": "ping"}, ensure_ascii=False).encode(
         "utf-8"
     )
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "User-Agent": f"modfig/{__version__}",
+    }
+    extra_headers = model.factory_extra_headers()
+    if isinstance(extra_headers, Mapping):
+        for k, v in extra_headers.items():
+            if isinstance(k, str) and isinstance(v, str):
+                headers[k] = v
     request = urllib.request.Request(
         url,
         data=payload,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         method="POST",
     )
     try:
@@ -969,14 +978,21 @@ def _probe_messages_one(
         },
         ensure_ascii=False,
     ).encode("utf-8")
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+        "User-Agent": f"modfig/{__version__}",
+    }
+    extra_headers = model.factory_extra_headers()
+    if isinstance(extra_headers, Mapping):
+        for k, v in extra_headers.items():
+            if isinstance(k, str) and isinstance(v, str):
+                headers[k] = v
     request = urllib.request.Request(
         url,
         data=payload,
-        headers={
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         method="POST",
     )
     try:

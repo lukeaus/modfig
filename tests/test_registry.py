@@ -844,6 +844,36 @@ def test_factory_extension_accepts_opaque_extra_args_values() -> None:
     assert extra_args["anything"] == [1, "two", {"three": None}]
 
 
+def test_factory_extension_probe_configuration() -> None:
+    content_true = _probe_registry(
+        provider_key="openrouter",
+        name="OpenRouter",
+        targets="[factory]",
+        enabled="true",
+        model_ext=("        extensions:\n          factory:\n            probe: true\n"),
+    )
+    assert load_registry_text(content_true).providers[0].models[0].factory_probe is True
+
+    content_false = _probe_registry(
+        provider_key="openrouter",
+        name="OpenRouter",
+        targets="[factory]",
+        enabled="true",
+        model_ext=("        extensions:\n          factory:\n            probe: false\n"),
+    )
+    assert load_registry_text(content_false).providers[0].models[0].factory_probe is False
+
+    bad_content = _probe_registry(
+        provider_key="openrouter",
+        name="OpenRouter",
+        targets="[factory]",
+        enabled="true",
+        model_ext=("        extensions:\n          factory:\n            probe: not-a-bool\n"),
+    )
+    with pytest.raises(RegistryValidationError, match="probe must be a boolean"):
+        load_registry_text(bad_content)
+
+
 def test_vscode_extension_accepts_passthroughs() -> None:
     content = _probe_registry(
         provider_key="openrouter",

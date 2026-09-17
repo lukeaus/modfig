@@ -113,6 +113,7 @@ class _ProbeHandler(BaseHTTPRequestHandler):
             {
                 "path": self.path,
                 "body": body,
+                "headers": dict(self.headers),
                 "auth": self.headers.get("Authorization", ""),
                 "x_api_key": self.headers.get("x-api-key", ""),
                 "anthropic_version": self.headers.get("anthropic-version", ""),
@@ -276,6 +277,7 @@ def test_probe_probes_only_openai_factory_models_at_responses() -> None:
     assert len(openai_server.requests) == 1
     assert openai_server.requests[0]["path"] == "/v1/responses"
     assert openai_server.requests[0]["auth"] == f"Bearer {KEY_SENTINEL}"
+    assert openai_server.requests[0]["headers"].get("User-Agent", "").startswith("modfig/")
     sent = json.loads(openai_server.requests[0]["body"])
     assert sent["model"] == "openai-model"
     # generic transport is never Responses-probed
@@ -739,3 +741,74 @@ def test_apply_persists_factory_providers_and_passthroughs(
     # non-object passthrough shapes persist verbatim through the JSON round-trip
     assert by_model["plain"]["extraArgs"] == [1, "two", {"three": None}]
     assert by_model["plain"]["extraHeaders"] == "static"
+
+
+def test_probe_skips_model_when_factory_probe_disabled() -> None:
+    def fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError("models with extensions.factory.probe: false must not be probed")
+
+    monkeypatch_target = pytest.MonkeyPatch()
+    monkeypatch_target.setattr("urllib.request.build_opener", fail)
+    registry_text = (
+        'specVersion: "0.1"\n'
+        "providers:\n"
+        "  router:\n"
+        "    name: Router\n"
+        "    targets: [factory]\n"
+        "    baseUrl: https://router.example/v1\n"
+        "    apiKey: env.ROUTER_KEY\n"
+        "    provider: openai\n"
+        "    enabled: true\n"
+        "    models:\n"
+        "      unprobed:\n"
+        "        displayName: Unprobed\n"
+        "        contextWindow: 8192\n"
+        "        maxOutputTokens: 1024\n"
+        "        enabled: true\n"
+        "        extensions:\n"
+        "          factory:\n"
+        "            probe: false\n"
+    )
+    registry = load_registry_text(registry_text)
+    try:
+        assert probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL}) == ()
+    finally:
+        monkeypatch_target.undo()
+
+
+def test_probe_merges_factory_extra_headers_and_sets_user_agent() -> None:
+    with _stub_server() as server:
+        url = f"http://127.0.0.1:{server.server_address[1]}/v1"
+        registry_text = (
+            'specVersion: "0.1"\n'
+            "providers:\n"
+            "  router:\n"
+            "    name: Router\n"
+            "    targets: [factory]\n"
+            f"    baseUrl: {url}\n"
+            "    apiKey: env.ROUTER_KEY\n"
+            "    provider: openai\n"
+            "    enabled: true\n"
+            "    models:\n"
+            "      custom-hdr:\n"
+            "        displayName: Custom Hdr\n"
+            "        contextWindow: 8192\n"
+            "        maxOutputTokens: 1024\n"
+            "        enabled: true\n"
+            "        extensions:\n"
+            "          factory:\n"
+            "            extraHeaders:\n"
+            "              x-session-id: session-123\n"
+            "              x-custom-key: custom-val\n"
+        )
+        registry = load_registry_text(registry_text)
+        probed = probe_factory_models(registry, {"ROUTER_KEY": KEY_SENTINEL})
+
+    assert probed == (("router", "custom-hdr"),)
+    assert len(server.requests) == 1
+    req = server.requests[0]
+    assert req["path"] == "/v1/responses"
+    assert req["auth"] == f"Bearer {KEY_SENTINEL}"
+    assert req["headers"].get("User-Agent", "").startswith("modfig/")
+    assert req["headers"].get("X-Session-Id") == "session-123"
+    assert req["headers"].get("X-Custom-Key") == "custom-val"
