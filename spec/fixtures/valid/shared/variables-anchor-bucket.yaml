@@ -1,23 +1,30 @@
 # AC-13.1: the optional root `variables` bucket carries one YAML anchor per
-# Factory default role; client configuration reuses them through aliases. The
-# YAML loader resolves the aliases before the reference parser sees the values.
+# Factory default role plus one reasoning-effort anchor per role; client
+# configuration reuses them through aliases. The YAML loader resolves the
+# aliases before the reference parser sees the values.
+# simple_effort is currently unused: subagent fields are model-only.
 specVersion: "0.1"
 variables:
   worker: &worker_model
     provider: router
     model: primary
+  worker_effort: &worker_effort high
   thinker: &thinker_model
     provider: router
     model: primary
+  thinker_effort: &thinker_effort max
   orchestrator: &orchestrator_model
     provider: router
     model: primary
+  orchestrator_effort: &orchestrator_effort max
   simple: &simple_model
     provider: router
     model: primary
+  simple_effort: &simple_effort high
   validator: &validator_model
     provider: router
     model: primary
+  validator_effort: &validator_effort max
 providers:
   router:
     name: Router
@@ -43,16 +50,16 @@ clientConfig:
         validator: *validator_model
       session:
         model: *worker_model
-        reasoningEffort: high
+        reasoningEffort: *worker_effort
         specModeModel: *thinker_model
-        specModeReasoningEffort: max
+        specModeReasoningEffort: *thinker_effort
       mission:
         orchestratorModel: *orchestrator_model
-        orchestratorReasoningEffort: max
+        orchestratorReasoningEffort: *orchestrator_effort
         workerModel: *worker_model
-        workerReasoningEffort: high
+        workerReasoningEffort: *worker_effort
         validationWorkerModel: *validator_model
-        validationWorkerReasoningEffort: max
+        validationWorkerReasoningEffort: *validator_effort
       subagent:
         lightModel: *worker_model
         mediumModel: *worker_model

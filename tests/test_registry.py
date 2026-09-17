@@ -1136,6 +1136,7 @@ def test_top_level_variables_anchor_bucket_with_aliases() -> None:
           worker: &worker_model
             provider: router
             model: primary
+          worker_effort: &worker_effort high
         providers:
           router:
             name: Router
@@ -1161,6 +1162,7 @@ def test_top_level_variables_anchor_bucket_with_aliases() -> None:
                 validator: *worker_model
               session:
                 model: *worker_model
+                reasoningEffort: *worker_effort
         """
     )
     registry = load_registry_text(content)
@@ -1170,6 +1172,7 @@ def test_top_level_variables_anchor_bucket_with_aliases() -> None:
     assert core["defaults"]["worker"] == reference
     assert core["defaults"]["validator"] == reference
     assert core["session"]["model"] == reference
+    assert core["session"]["reasoningEffort"] == "high"
 
 
 @pytest.mark.parametrize("block", ["variables:\n  - worker\n", "variables: null\n"])

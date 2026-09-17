@@ -36,18 +36,23 @@ variables:
   worker: &worker_model
     provider: openrouter
     model: gpt-5-mini
+  worker_effort: &worker_effort max
   thinker: &thinker_model
     provider: openrouter
     model: gpt-5
+  thinker_effort: &thinker_effort max
   orchestrator: &orchestrator_model
     provider: openrouter
     model: gpt-5
+  orchestrator_effort: &orchestrator_effort max
   simple: &simple_model
     provider: openrouter
     model: gpt-5-mini
+  simple_effort: &simple_effort max
   validator: &validator_model
     provider: openrouter
     model: gpt-5
+  validator_effort: &validator_effort max
 
 clientConfig:
   factory:
@@ -60,15 +65,23 @@ clientConfig:
         validator: *validator_model
       session:
         model: *worker_model
-        reasoningEffort: max
+        reasoningEffort: *worker_effort
         specModeModel: *thinker_model
-        specModeReasoningEffort: max
+        specModeReasoningEffort: *thinker_effort
+      mission:
+        orchestratorModel: *orchestrator_model
+        orchestratorReasoningEffort: *orchestrator_effort
+        workerModel: *worker_model
+        workerReasoningEffort: *worker_effort
+        validationWorkerModel: *validator_model
+        validationWorkerReasoningEffort: *validator_effort
 ```
 
 `variables` is an anchor bucket only: ModFig requires it to be a mapping and
 never interprets its content, because the YAML loader expands the aliases
 before the parser sees the values. Anchors must be defined before the first
-alias that uses them.
+alias that uses them. `simple_effort` has no Factory effort slot today
+(subagent fields are model-only).
 
 ## Factory TUI session default
 
