@@ -22,6 +22,8 @@
   (`MODFIG_PROBE_TIMEOUT` overrides it per-request).
 - Split maintained documentation into target guides, CLI reference, runtime
   support, architecture, and development documentation.
+- Added an optional root `variables` anchor bucket so model references can be
+  written once and reused through YAML aliases in any client configuration.
 
 ## Notes
 

@@ -1,0 +1,50 @@
+# AC-13.1: the optional root `variables` bucket carries YAML anchors that any
+# client configuration reuses through aliases. The YAML loader resolves the
+# aliases before the reference parser sees the values.
+specVersion: "0.1"
+variables:
+  worker: &worker_model
+    provider: router
+    model: primary
+  thinker: &thinker_model
+    provider: router
+    model: primary
+providers:
+  router:
+    name: Router
+    targets: [factory]
+    baseUrl: https://router.example/v1
+    apiKey: env.ROUTER_KEY
+    provider: openai
+    enabled: true
+    models:
+      primary:
+        displayName: Primary
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true
+clientConfig:
+  factory:
+    core:
+      defaults:
+        worker: *worker_model
+        thinker: *thinker_model
+        orchestrator: *thinker_model
+        simple: *worker_model
+        validator: *thinker_model
+      session:
+        model: *worker_model
+        reasoningEffort: high
+        specModeModel: *thinker_model
+        specModeReasoningEffort: max
+      mission:
+        orchestratorModel: *thinker_model
+        orchestratorReasoningEffort: max
+        workerModel: *worker_model
+        workerReasoningEffort: high
+        validationWorkerModel: *thinker_model
+        validationWorkerReasoningEffort: max
+      subagent:
+        lightModel: *worker_model
+        mediumModel: *worker_model
+        heavyModel: *thinker_model

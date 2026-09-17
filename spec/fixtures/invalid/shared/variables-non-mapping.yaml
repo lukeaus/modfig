@@ -1,0 +1,19 @@
+# AC-13.1: root `variables` is an anchor bucket, so it must be a mapping.
+# A sequence is rejected by the published schema and by the reference parser.
+specVersion: "0.1"
+variables:
+  - worker
+providers:
+  router:
+    name: Router
+    targets: [factory]
+    baseUrl: https://router.example/v1
+    apiKey: env.ROUTER_KEY
+    provider: openai
+    enabled: true
+    models:
+      primary:
+        displayName: Primary
+        contextWindow: 8192
+        maxOutputTokens: 1024
+        enabled: true

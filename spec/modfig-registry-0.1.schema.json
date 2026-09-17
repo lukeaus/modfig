@@ -22,6 +22,10 @@
       "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
       "properties": { "factory": { "$ref": "#/$defs/factoryClientConfig" } },
       "additionalProperties": { "$ref": "#/$defs/clientConfig" }
+    },
+    "variables": {
+      "type": "object",
+      "description": "Optional anchor bucket reusable across client configurations via YAML aliases"
     }
   },
   "$defs": {

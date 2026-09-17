@@ -1125,3 +1125,55 @@ def test_registry_rejects_invalid_or_unsafe_base_urls(base_url: str) -> None:
 
     with pytest.raises(RegistryValidationError, match="baseUrl"):
         load_registry_text(content)
+
+
+def test_top_level_variables_anchor_bucket_with_aliases() -> None:
+    # ponytail: one anchor definition reused across factory core via aliases.
+    content = textwrap.dedent(
+        """\
+        specVersion: "0.1"
+        variables:
+          worker: &worker_model
+            provider: router
+            model: primary
+        providers:
+          router:
+            name: Router
+            targets: [factory]
+            baseUrl: https://router.example/v1
+            apiKey: env.ROUTER_KEY
+            provider: openai
+            enabled: true
+            models:
+              primary:
+                displayName: Primary
+                contextWindow: 8192
+                maxOutputTokens: 1024
+                enabled: true
+        clientConfig:
+          factory:
+            core:
+              defaults:
+                worker: *worker_model
+                thinker: *worker_model
+                orchestrator: *worker_model
+                simple: *worker_model
+                validator: *worker_model
+              session:
+                model: *worker_model
+        """
+    )
+    registry = load_registry_text(content)
+    core = registry.client_config["factory"].core
+    assert core is not None
+    reference = ModelReference("router", "primary")
+    assert core["defaults"]["worker"] == reference
+    assert core["defaults"]["validator"] == reference
+    assert core["session"]["model"] == reference
+
+
+@pytest.mark.parametrize("block", ["variables:\n  - worker\n", "variables: null\n"])
+def test_top_level_variables_must_be_mapping(block: str) -> None:
+    content = registry_text() + block
+    with pytest.raises(RegistryValidationError, match="registry.variables must be a mapping"):
+        load_registry_text(content)
