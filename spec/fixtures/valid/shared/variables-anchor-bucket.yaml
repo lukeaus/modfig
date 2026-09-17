@@ -1,12 +1,21 @@
-# AC-13.1: the optional root `variables` bucket carries YAML anchors that any
-# client configuration reuses through aliases. The YAML loader resolves the
-# aliases before the reference parser sees the values.
+# AC-13.1: the optional root `variables` bucket carries one YAML anchor per
+# Factory default role; client configuration reuses them through aliases. The
+# YAML loader resolves the aliases before the reference parser sees the values.
 specVersion: "0.1"
 variables:
   worker: &worker_model
     provider: router
     model: primary
   thinker: &thinker_model
+    provider: router
+    model: primary
+  orchestrator: &orchestrator_model
+    provider: router
+    model: primary
+  simple: &simple_model
+    provider: router
+    model: primary
+  validator: &validator_model
     provider: router
     model: primary
 providers:
@@ -29,20 +38,20 @@ clientConfig:
       defaults:
         worker: *worker_model
         thinker: *thinker_model
-        orchestrator: *thinker_model
-        simple: *worker_model
-        validator: *thinker_model
+        orchestrator: *orchestrator_model
+        simple: *simple_model
+        validator: *validator_model
       session:
         model: *worker_model
         reasoningEffort: high
         specModeModel: *thinker_model
         specModeReasoningEffort: max
       mission:
-        orchestratorModel: *thinker_model
+        orchestratorModel: *orchestrator_model
         orchestratorReasoningEffort: max
         workerModel: *worker_model
         workerReasoningEffort: high
-        validationWorkerModel: *thinker_model
+        validationWorkerModel: *validator_model
         validationWorkerReasoningEffort: max
       subagent:
         lightModel: *worker_model
