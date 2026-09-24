@@ -19,7 +19,13 @@ from .adapter_routes import (
     validate_adapter_routes,
 )
 from .adapters import discover_adapter_entry_points, load_enabled_adapter
-from .app import load_valid_registry, run, validate_adapters, validate_logical_client
+from .app import (
+    capture_external_runtime_proof,
+    load_valid_registry,
+    run,
+    validate_adapters,
+    validate_logical_client,
+)
 from .clients import chatgpt, vscode
 from .components import Component, ExtensionComponent
 from .errors import AppError
@@ -94,6 +100,10 @@ def build_parser() -> argparse.ArgumentParser:
     enable.add_argument("--write-grant", action="append", default=[])
     disable = adapter_commands.add_parser("disable")
     disable.add_argument("entry_point")
+    adapter_proof = adapter_commands.add_parser("proof")
+    adapter_proof_commands = adapter_proof.add_subparsers(dest="proof_command", required=True)
+    adapter_capture = adapter_proof_commands.add_parser("capture")
+    adapter_capture.add_argument("entry_point")
     for name in ("diff", "apply"):
         command = subcommands.add_parser(name)
         command.add_argument("--config", metavar="FILE")
@@ -215,6 +225,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("Registry is valid.")
             return 0
         if arguments.command == "adapter":
+            if arguments.adapter_command == "proof":
+                path = capture_external_runtime_proof(arguments.entry_point)
+                print(f"Captured runtime proof for {arguments.entry_point}: {path}")
+                return 0
             if arguments.adapter_command == "enable":
                 _enable_adapter(arguments)
             else:

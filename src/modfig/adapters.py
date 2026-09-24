@@ -255,6 +255,18 @@ class AdapterV1(Protocol):
     ) -> None: ...
 
 
+@runtime_checkable
+class ProofCapturingAdapterV1(AdapterV1, Protocol):
+    """Optional extension for third-party adapters that can prove their runtime.
+
+    `modfig adapter proof capture` calls this on the machine being configured and
+    records the facts, bound to the preflight declaration and the installed
+    distribution version, for `apply` to load. Raise to refuse capture.
+    """
+
+    def capture_runtime_facts(self, context: AdapterContext) -> Mapping[str, object]: ...
+
+
 def preflight_declaration_sha256(declaration: PreflightDeclaration) -> str:
     payload = {
         "proofRequirements": _json_value(declaration.proof_requirements),

@@ -10,8 +10,29 @@
 | `modfig diff [--config FILE] [--target TARGET]` | Run target preflight without writing. |
 | `modfig apply [--config FILE] [--target TARGET] [--yes]` | Apply one recoverable transaction. |
 | `modfig adapter enable ...` | Explicitly enable a verified third-party adapter route. |
+| `modfig adapter proof capture ADAPTER_ID` | Capture the runtime proof a third-party route needs before `apply` writes. |
 
-`TARGET` is `factory`, `vscode`, `chatgpt`, or `all`; it defaults to `all`.
+`TARGET` is `factory`, `vscode`, `chatgpt`, a third-party logical client with an
+enabled route, or `all`; it defaults to `all`.
+
+## Third-party runtime proofs
+
+`apply` writes through a third-party route only with a runtime proof captured on
+the same machine. `modfig adapter proof capture ADAPTER_ID` loads the enabled
+route, runs the adapter's preflight, and asks the adapter for its runtime facts
+through the optional `capture_runtime_facts` method. Adapters without that
+method cannot be captured, so their routes stay diff-only.
+
+The proof is written owner-only to `ADAPTER_ID-runtime-proof.json` beside the
+manifest (`~/.modfig/` by default, or the directory of `MODFIG_MANIFEST`). It
+binds the facts to:
+
+- the adapter id, distribution, and installed distribution version;
+- the logical client and component;
+- the SHA-256 of the preflight declaration.
+
+A package upgrade or a changed declaration makes `apply` refuse the old proof;
+capture again. `diff` does not need a proof.
 
 ## Configuration discovery
 
