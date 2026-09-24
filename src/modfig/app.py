@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import importlib.metadata
+import json
 import os
 import re
 import uuid
 from collections.abc import Collection, Mapping, Sequence
+from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
@@ -29,11 +31,13 @@ from .adapters import (
     ArtifactPlan,
     ArtifactSnapshot,
     PreflightDeclaration,
+    ProofCapturingAdapterV1,
     ResolvedModel,
     RuntimeProof,
     discover_adapter_entry_points,
     load_enabled_adapter,
     preflight_declaration_sha256,
+    validate_json_safe,
     validate_plan_against_declarations,
 )
 from .backup import (
@@ -66,10 +70,12 @@ from .platform import PrivateParentMissingError
 from .registry import ModelReference, Registry, RegistryValidationError, load_registry
 from .storage import (
     FileVersion,
+    atomic_write_json,
     conditional_delete,
     conditional_write_bytes,
     inspect_private_file,
     read_private_bytes,
+    read_private_text,
     resolve_config_path,
 )
 
@@ -674,6 +680,123 @@ def _validate_external_owned_artifact(
             raise AppError("external owned artifact has drifted")
 
 
+_EXTERNAL_PROOF_VERSION = 1
+_EXTERNAL_PROOF_FIELDS = frozenset(
+    {
+        "proofVersion",
+        "adapterId",
+        "distribution",
+        "distributionVersion",
+        "logicalClient",
+        "component",
+        "declarationSha256",
+        "facts",
+        "capturedAt",
+    }
+)
+_PROOF_FILE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _component_label(component: Component) -> str:
+    return "core" if component == "core" else f"extension:{component.name}"
+
+
+def external_proof_path(adapter_id: str) -> Path:
+    """Where a third-party route's runtime proof lives: beside the manifest."""
+    if not _PROOF_FILE_ID_RE.fullmatch(adapter_id) or ".." in adapter_id:
+        raise AppError(f"adapter id cannot name a proof file: {adapter_id!r}")
+    return resolve_manifest_path().absolute().with_name(f"{adapter_id}-runtime-proof.json")
+
+
+def capture_external_runtime_proof(adapter_id: str) -> Path:
+    """Capture a runtime proof for an enabled third-party route on this machine.
+
+    The proof binds the adapter's own runtime facts to its current preflight
+    declaration and the installed distribution version, so a changed plan shape
+    or an upgraded package needs a fresh capture before `apply` will write.
+    """
+    routes = _merged_adapter_routes(include_chatgpt=False)
+    try:
+        route = routes.by_adapter_id(adapter_id)
+    except AdapterRouteError as exc:
+        raise AppError(str(exc)) from exc
+    if route.builtin:
+        raise AppError(
+            f"{adapter_id} is a builtin adapter; use its client proof capture command instead"
+        )
+    entry_points = discover_adapter_entry_points()
+    adapter = load_enabled_adapter(route, entry_points=entry_points)
+    if not isinstance(adapter, ProofCapturingAdapterV1):
+        raise AppError(f"adapter {adapter_id} does not support runtime proof capture")
+    context = AdapterContext(route.logical_client, route.component)
+    declaration = adapter.preflight(context)
+    for request in declaration.read_requests:
+        _grant_destination(route, request.artifact, write=False)
+    for write in declaration.prospective_writes:
+        _grant_destination(route, write.artifact, write=True)
+    facts = adapter.capture_runtime_facts(context)
+    if not isinstance(facts, Mapping):
+        raise AppError(f"adapter {adapter_id} returned runtime facts that are not a mapping")
+    validate_json_safe(facts, "runtime facts")
+    provenance = _adapter_provenance(route, entry_points)
+    path = external_proof_path(adapter_id)
+    atomic_write_json(
+        path,
+        {
+            "proofVersion": _EXTERNAL_PROOF_VERSION,
+            "adapterId": route.adapter_id,
+            "distribution": route.distribution,
+            "distributionVersion": provenance.version,
+            "logicalClient": route.logical_client,
+            "component": _component_label(route.component),
+            "declarationSha256": preflight_declaration_sha256(declaration),
+            "facts": dict(facts),
+            "capturedAt": datetime.now(UTC).isoformat(timespec="seconds"),
+        },
+    )
+    return path
+
+
+def _load_external_runtime_proof(
+    route: AdapterRoute,
+    entry_points: Mapping[str, importlib.metadata.EntryPoint],
+) -> RuntimeProof:
+    path = external_proof_path(route.adapter_id)
+    unavailable = (
+        f"runtime proof unavailable for {route.logical_client} {route.component!r}; "
+        f"run `modfig adapter proof capture {route.adapter_id}`"
+    )
+    try:
+        if not inspect_private_file(path, "adapter runtime proof").exists:
+            raise AppError(unavailable)
+    except PrivateParentMissingError:
+        raise AppError(unavailable) from None
+    try:
+        raw = json.loads(read_private_text(path, "adapter runtime proof"))
+    except ValueError as exc:
+        raise AppError(f"adapter runtime proof is not valid JSON: {path}") from exc
+    if not isinstance(raw, dict) or set(raw) != _EXTERNAL_PROOF_FIELDS:
+        raise AppError(f"adapter runtime proof has an unexpected shape: {path}")
+    provenance = _adapter_provenance(route, entry_points)
+    expected = {
+        "proofVersion": _EXTERNAL_PROOF_VERSION,
+        "adapterId": route.adapter_id,
+        "distribution": route.distribution,
+        "distributionVersion": provenance.version,
+        "logicalClient": route.logical_client,
+        "component": _component_label(route.component),
+    }
+    for key, value in expected.items():
+        if raw[key] != value:
+            raise AppError(
+                f"adapter runtime proof {key} does not match the route "
+                f"(proof {raw[key]!r}, route {value!r}); recapture it"
+            )
+    if not isinstance(raw["declarationSha256"], str) or not isinstance(raw["facts"], dict):
+        raise AppError(f"adapter runtime proof has an unexpected shape: {path}")
+    return RuntimeProof(raw["facts"], raw["declarationSha256"], provenance=path)
+
+
 def _vscode_proof_path() -> Path:
     configured = os.environ.get("MODFIG_VSCODE_PROOF")
     if configured:
@@ -952,7 +1075,7 @@ def _apply_transaction(
                     proof = _load_public_chatgpt_proof()
                 proof = _chatgpt_runtime_proof(declaration, route, proof)
             elif proof is None and not route.builtin:
-                raise AppError(f"runtime proof unavailable for {client} {component!r}")
+                proof = _load_external_runtime_proof(route, entry_points)
             if proof is not None and proof.declaration_sha256 != preflight_declaration_sha256(
                 declaration
             ):

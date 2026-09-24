@@ -629,3 +629,127 @@ def test_external_owned_artifact_cannot_change_manifest_identity(
     assert manifest.exists()
     assert not journal.exists()
     assert not backups.exists()
+
+
+def _capturing_harness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, version: str = "1.0.0"
+) -> tuple[Path, Path, _EntryPoint]:
+    config, destination, _manifest, _key, _proof = _external_harness(tmp_path, monkeypatch)
+    base = type(_load_fixture_adapter())
+
+    class CapturingAdapter(base):  # type: ignore[misc,valid-type]
+        def capture_runtime_facts(self, context: AdapterContext) -> dict[str, object]:
+            return {"checkedClient": context.logical_client}
+
+    entry_point = _EntryPoint(CapturingAdapter())
+    entry_point.dist.version = version
+    monkeypatch.setattr(
+        app, "discover_adapter_entry_points", lambda: {entry_point.name: entry_point}
+    )
+    return config, destination, entry_point
+
+
+def _apply_without_injected_proofs(config: Path, tmp_path: Path) -> None:
+    app._apply_transaction(
+        str(config),
+        "factory",
+        True,
+        {},
+        journal_path=tmp_path / "pending.json",
+        backup_root=tmp_path / "backups",
+    )
+
+
+@POSIX_SECURE_IO
+def test_external_apply_without_captured_proof_names_the_capture_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, destination, _entry_point = _capturing_harness(tmp_path, monkeypatch)
+
+    with pytest.raises(app.AppError, match="modfig adapter proof capture io.example.helper"):
+        _apply_without_injected_proofs(config, tmp_path)
+
+    assert not destination.exists()
+
+
+@POSIX_SECURE_IO
+def test_captured_external_proof_lets_apply_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, destination, _entry_point = _capturing_harness(tmp_path, monkeypatch)
+
+    path = app.capture_external_runtime_proof("io.example.helper")
+
+    assert path == tmp_path / "io.example.helper-runtime-proof.json"
+    assert path.stat().st_mode & 0o077 == 0
+    recorded = json.loads(path.read_text(encoding="utf-8"))
+    assert recorded["facts"] == {"checkedClient": "factory"}
+    assert recorded["component"] == "extension:helper"
+    assert recorded["distributionVersion"] == "1.0.0"
+    _apply_without_injected_proofs(config, tmp_path)
+    assert json.loads(destination.read_text(encoding="utf-8"))["config"]["sourcePlugin"] == (
+        "helper@helper"
+    )
+
+
+@POSIX_SECURE_IO
+def test_external_proof_is_bound_to_the_distribution_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, destination, entry_point = _capturing_harness(tmp_path, monkeypatch)
+    app.capture_external_runtime_proof("io.example.helper")
+    entry_point.dist.version = "1.0.1"
+
+    with pytest.raises(app.AppError, match="distributionVersion does not match"):
+        _apply_without_injected_proofs(config, tmp_path)
+
+    assert not destination.exists()
+
+
+@POSIX_SECURE_IO
+def test_external_proof_is_bound_to_the_preflight_declaration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, destination, _entry_point = _capturing_harness(tmp_path, monkeypatch)
+    path = app.capture_external_runtime_proof("io.example.helper")
+    recorded = json.loads(path.read_text(encoding="utf-8"))
+    recorded["declarationSha256"] = "0" * 64
+    path.write_text(json.dumps(recorded), encoding="utf-8")
+
+    with pytest.raises(app.AppError, match="does not match the preflight declaration"):
+        _apply_without_injected_proofs(config, tmp_path)
+
+    assert not destination.exists()
+
+
+@POSIX_SECURE_IO
+def test_capture_refuses_an_adapter_without_capture_support(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _external_harness(tmp_path, monkeypatch)
+
+    with pytest.raises(app.AppError, match="does not support runtime proof capture"):
+        app.capture_external_runtime_proof("io.example.helper")
+
+    assert not (tmp_path / "io.example.helper-runtime-proof.json").exists()
+
+
+@POSIX_SECURE_IO
+def test_capture_refuses_a_builtin_adapter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _capturing_harness(tmp_path, monkeypatch)
+
+    with pytest.raises(app.AppError, match="builtin adapter"):
+        app.capture_external_runtime_proof("modfig.factory")
+
+
+@POSIX_SECURE_IO
+def test_cli_adapter_proof_capture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from modfig import cli
+
+    _capturing_harness(tmp_path, monkeypatch)
+
+    assert cli.main(["adapter", "proof", "capture", "io.example.helper"]) == 0
+    assert "Captured runtime proof for io.example.helper" in capsys.readouterr().out
+    assert (tmp_path / "io.example.helper-runtime-proof.json").exists()

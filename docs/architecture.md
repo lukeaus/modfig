@@ -61,6 +61,13 @@ Other adapters require explicit local route configuration in
 The host validates every declared read/write grant and passes the adapter only
 its component mapping, client-filtered model facts, proofs, and snapshots.
 
+Built-in routes load their proofs from their own capture commands. Third-party
+routes load a proof written by `modfig adapter proof capture`, which an adapter
+supports by implementing the optional `capture_runtime_facts`
+(`ProofCapturingAdapterV1`). The proof is bound to the declaration hash and the
+installed distribution version, so `apply` never writes through a third-party
+route that has not been proven on the current machine.
+
 ## Ownership and foreign state
 
 The v3 manifest records ownership by client and component, including:
