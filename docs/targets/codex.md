@@ -47,6 +47,13 @@ providers:
 The default is used for the base `config.toml` projection. It does not remove
 the other provider profiles.
 
+## Releasing
+
+When no provider emits to `chatgpt`, apply releases ownership instead of
+requiring a default: it deletes the profiles and catalogs ModFig owns and
+clears the manifest record. It never deletes `config.toml` (managed keys in it
+are left as-is) or any owned file edited since ModFig wrote it.
+
 ## Selecting a profile
 
 Use a provider profile explicitly in the CLI or TUI:

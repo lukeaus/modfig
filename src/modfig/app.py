@@ -949,6 +949,13 @@ def _selected_apply_clients(
     )
 
 
+def _releases_record(route: AdapterRoute, plan: ArtifactPlan) -> bool:
+    # ponytail: only the builtin ChatGPT adapter releases (empty ownership);
+    # for any other route an empty plan stays a no-op. Add a real plan flag if
+    # a second adapter needs to release.
+    return route.adapter_id == "modfig.chatgpt" and not plan.ownership
+
+
 def _apply_transaction(
     config: str | None,
     target: str,
@@ -1133,7 +1140,7 @@ def _apply_transaction(
             else:
                 plan = adapter.plan(plan_context, proof, snapshots, ownership)
             validate_plan_against_declarations(plan, declaration, plan_context)
-            if not plan.artifacts and component == "core":
+            if not plan.artifacts and component == "core" and not _releases_record(route, plan):
                 raise AppError("transaction requires at least one artifact per client component")
             _validate_external_owned_artifact(route, record, plan, snapshots)
             for artifact in plan.artifacts:
@@ -1141,11 +1148,19 @@ def _apply_transaction(
                     raise AppError("planned output exceeds 16 MiB")
             plans.append((client, component, route, adapter, proof, plan, snapshots, versions))
 
-        if not any(
+        files_changed = any(
             artifact.planned != snapshots[artifact.artifact]
             for _client, _component, _route, _adapter, _proof, plan, snapshots, _versions in plans
             for artifact in plan.artifacts
-        ):
+        )
+        # A release must commit even when the managed files are already gone,
+        # or the stale manifest record could never be cleared.
+        releases_record = any(
+            _releases_record(route, plan)
+            and _component_record(manifest_snapshot.manifest, client, component) is not None
+            for client, component, route, _adapter, _proof, plan, _snapshots, _versions in plans
+        )
+        if not files_changed and not releases_record:
             return
         artifacts: list[TransactionArtifact] = []
         affected_model_ids: list[str] = []
@@ -1177,6 +1192,8 @@ def _apply_transaction(
                     )
                 )
         for client, component, route, _adapter, _proof, plan, _snapshots, _versions in plans:
+            if not plan.artifacts and not _releases_record(route, plan):
+                continue  # nothing written or released: the existing record stays as is
             owned_artifacts = tuple(
                 OwnedArtifact(
                     artifact.artifact.grant_id,
@@ -1197,9 +1214,7 @@ def _apply_transaction(
                 if isinstance(artifact.planned, bytes)
             )
             replacement = (
-                record
-                if not plan.artifacts
-                else None
+                None
                 if not owned_artifacts
                 else ComponentOwnership(
                     component,
