@@ -9,7 +9,7 @@
 
 # docs
 docs/research/
-docs/plan/
+docs/plans/
 
 # Isolated Git worktrees
 .worktrees/
