@@ -1192,6 +1192,8 @@ def _apply_transaction(
                     )
                 )
         for client, component, route, _adapter, _proof, plan, _snapshots, _versions in plans:
+            if not plan.artifacts and not _releases_record(route, plan):
+                continue  # nothing written or released: the existing record stays as is
             owned_artifacts = tuple(
                 OwnedArtifact(
                     artifact.artifact.grant_id,
@@ -1213,10 +1215,6 @@ def _apply_transaction(
             )
             replacement = (
                 None
-                if not plan.artifacts and _releases_record(route, plan)
-                else record
-                if not plan.artifacts
-                else None
                 if not owned_artifacts
                 else ComponentOwnership(
                     component,

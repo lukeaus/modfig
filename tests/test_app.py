@@ -13,8 +13,13 @@ from modfig.adapter_routes import PathGrant
 from modfig.adapters import (
     AdapterMetadata,
     AdapterPlanError,
+    ArtifactIdentity,
+    ArtifactPlan,
+    PlannedArtifact,
     PreflightDeclaration,
+    ProspectiveWrite,
     RuntimeProof,
+    SnapshotRequest,
 )
 from modfig.cli import main
 from modfig.clients.chatgpt import ChatGPTRuntime
@@ -86,6 +91,16 @@ clientConfig:
 """
 
 V01_CURSOR_AND_ZEBRA = V01_CURSOR_CORE.replace("targets: [cursor]", "targets: [cursor, zebra]")
+
+V01_CURSOR_HELPER_AND_ZEBRA = (
+    V01_CURSOR_CORE.split("clientConfig:")[0].replace("targets: [cursor]", "targets: [zebra]")
+    + """clientConfig:
+  cursor:
+    extensions:
+      helper:
+        anyShape: true
+"""
+)
 
 V01_FACTORY_EXTENSION_ONLY = """specVersion: "0.1"
 providers:
@@ -1224,6 +1239,107 @@ def test_apply_chatgpt_releases_ownership_and_drops_owned_artifacts(
     assert not catalog.exists()
     assert base.read_bytes() == before
     assert "chatgpt" not in app.load_ownership_manifest(manifest).clients
+
+
+class _SkipHelperAdapter:
+    """Extension that plans nothing but keeps its ownership (e.g. plugin not installed)."""
+
+    def describe(self) -> AdapterMetadata:
+        return AdapterMetadata("test.helper", "cursor", ExtensionComponent("helper"))
+
+    def validate(self, config: object, context: object) -> None:
+        del config, context
+
+    def preflight(self, context: object) -> PreflightDeclaration:
+        del context
+        return PreflightDeclaration({}, (), ())
+
+    def plan(self, *args: object) -> ArtifactPlan:
+        del args
+        return ArtifactPlan((), {"kept": True})
+
+    def recheck(self, proof: object) -> None:
+        del proof
+
+    def verify(self, *args: object) -> None:
+        del args
+
+
+class _WriteZebraAdapter(_SkipHelperAdapter):
+    identity = ArtifactIdentity("zebra-file", PurePosixPath("zebra.json"))
+
+    def describe(self) -> AdapterMetadata:
+        return AdapterMetadata("test.zebra", "zebra", "core")
+
+    def preflight(self, context: object) -> PreflightDeclaration:
+        del context
+        return PreflightDeclaration(
+            {}, (SnapshotRequest(self.identity),), (ProspectiveWrite(self.identity),)
+        )
+
+    def plan(self, *args: object) -> ArtifactPlan:
+        del args
+        planned = PlannedArtifact(self.identity, b"{}\n", "features.core.settings", {})
+        return ArtifactPlan((planned,), {"zebra": True})
+
+
+@POSIX_SECURE_IO
+def test_apply_keeps_record_of_component_that_plans_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # cursor/helper plans nothing (like oh-my-droid without its plugin) and is
+    # planned before zebra; zebra's absent record must not replace helper's.
+    config = tmp_path / "modfig.yaml"
+    _write_text(config, V01_CURSOR_HELPER_AND_ZEBRA)
+    manifest = tmp_path / "manifest.json"
+    kept = ComponentOwnership(
+        ExtensionComponent("helper"),
+        AdapterProvenance("test.helper", "test"),
+        "helper-file",
+        PurePosixPath("helper.json"),
+        None,
+        "a" * 64,
+        {"kept": True},
+    )
+    manifest.write_bytes(
+        ownership_manifest_bytes(OwnershipManifest(clients={"cursor": ClientOwnership((kept,))}))
+    )
+    manifest.chmod(0o600)
+
+    def route(client: str, component, adapter_id: str, grant_id: str, name: str):
+        grant = PathGrant(grant_id, "file", tmp_path / name, None)
+        return app.AdapterRoute(
+            client, component, adapter_id, "test", True, (grant,), (grant,), True
+        )
+
+    routes = app.AdapterRoutes(
+        (
+            route("cursor", "core", "test.cursor", "cursor-file", "cursor.json"),
+            route(
+                "cursor", ExtensionComponent("helper"), "test.helper", "helper-file", "helper.json"
+            ),
+            route("zebra", "core", "test.zebra", "zebra-file", "zebra.json"),
+        )
+    )
+    adapters = {"test.helper": _SkipHelperAdapter(), "test.zebra": _WriteZebraAdapter()}
+    monkeypatch.setattr(app, "resolve_manifest_path", lambda *_: manifest)
+    monkeypatch.setattr(app, "_merged_adapter_routes", lambda **kwargs: routes)
+    monkeypatch.setattr(
+        app, "_adapter_for_route", lambda route, _entry_points: adapters[route.adapter_id]
+    )
+
+    app._apply_transaction(
+        str(config),
+        "all",
+        True,
+        journal_path=tmp_path / "pending.json",
+        backup_root=tmp_path / "backups",
+    )
+
+    clients = app.load_ownership_manifest(manifest).clients
+    assert clients["cursor"].components == (kept,)
+    assert clients["zebra"].components[0].ownership == {"zebra": True}
+    assert (tmp_path / "zebra.json").read_bytes() == b"{}\n"
 
 
 def test_factory_plan_context_contains_only_factory_emitted_model_dtos() -> None:
