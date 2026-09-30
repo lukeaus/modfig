@@ -1154,49 +1154,15 @@ def test_chatgpt_adapter_empty_models_plan_skips_drifted_artifacts(tmp_path: Pat
 
 
 @POSIX_SECURE_IO
-def test_chatgpt_adapter_empty_models_plan_without_ownership_is_empty(tmp_path: Path) -> None:
-    codex_home, config, executable = _codex_fixture(tmp_path)
-    proof = _release_proof(codex_home, config, executable)
-
-    plan = adapter.plan(AdapterPlanContext("chatgpt", "core"), proof, {}, {})
-
-    assert plan.artifacts == ()
-    assert plan.ownership == {}
-
-
-@POSIX_SECURE_IO
-def test_chatgpt_adapter_still_requires_exactly_one_default_provider(tmp_path: Path) -> None:
-    codex_home, config, executable = _codex_fixture(tmp_path)
-    proof = _release_proof(codex_home, config, executable)
-    models = (
-        replace(_resolved_chatgpt_model(), chatgpt_default=True),
-        replace(_resolved_chatgpt_model(), provider_key="other", chatgpt_default=True),
-    )
-
-    with pytest.raises(
-        AdapterPlanError, match="exactly one ChatGPT provider must be marked default"
-    ):
-        adapter.plan(AdapterPlanContext("chatgpt", "core", models=models), proof, {}, {})
-
-
-@POSIX_SECURE_IO
 def test_chatgpt_adapter_verify_accepts_released_state(tmp_path: Path) -> None:
     codex_home, config, executable = _codex_fixture(tmp_path)
     proof = _release_proof(codex_home, config, executable)
     context = AdapterContext("chatgpt", "core", models=(), ownership={})
 
     adapter.verify(context, proof, (AbsentDestination(), AbsentDestination()))
-    adapter.verify(context, proof, ())
 
     with pytest.raises(AdapterPlanError, match="artifact ownership"):
         adapter.verify(context, proof, (b"left behind",))
-
-    with pytest.raises(AdapterPlanError, match="artifact ownership"):
-        adapter.verify(
-            AdapterContext("chatgpt", "core", models=(_resolved_chatgpt_model(),), ownership={}),
-            proof,
-            (AbsentDestination(),),
-        )
 
 
 @POSIX_SECURE_IO

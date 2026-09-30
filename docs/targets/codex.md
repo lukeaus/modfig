@@ -49,21 +49,10 @@ the other provider profiles.
 
 ## Releasing
 
-When no provider emits to `chatgpt`, the next apply is a release rather than a
-projection. ModFig drops the provider profiles and catalogs it wholly owns,
-then clears its ownership record so `~/.modfig/manifest.json` no longer lists
-them.
-
-Two artifacts are never deleted by a release:
-
-- `config.toml` is Codex's live home config. ModFig only ever reconciled its
-  managed fields into it, so release lets go of ownership without removing the
-  file (or the foreign keys it preserved).
-- Any owned artifact whose bytes have changed since ModFig wrote them. Drifted
-  content is no longer ModFig's to delete, so it is left in place.
-
-An empty model list does not need a default provider; the "exactly one default"
-rule applies only while at least one provider emits to `chatgpt`.
+When no provider emits to `chatgpt`, apply releases ownership instead of
+requiring a default: it deletes the profiles and catalogs ModFig owns and
+clears the manifest record. It never deletes `config.toml` (managed keys in it
+are left as-is) or any owned file edited since ModFig wrote it.
 
 ## Selecting a profile
 

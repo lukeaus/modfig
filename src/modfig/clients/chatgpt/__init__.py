@@ -608,9 +608,7 @@ class ChatGPTAdapter:
         _validate_adapter_binding(context.logical_client, context.component)
         runtime = _chatgpt_runtime(proof)
         if not context.models:
-            # ponytail: zero providers emit to chatgpt (subscription-native
-            # Codex). The plan is empty of writes — it drops managed artifacts
-            # and clears ownership instead of demanding a default provider.
+            # No provider emits to chatgpt: release ownership, don't demand a default.
             return ArtifactPlan(_release_owned_artifacts(snapshots, ownership), {})
         grouped = _models_by_provider(context.models)
         default_key = _default_provider_key(context.models)
@@ -1129,13 +1127,11 @@ def _release_owned_artifacts(
     snapshots: Mapping[ArtifactIdentity, ArtifactSnapshot],
     ownership: AdapterOwnership,
 ) -> tuple[PlannedArtifact, ...]:
-    """Drop managed artifacts when no provider emits to chatgpt.
+    """Drop owned profiles/catalogs that are absent or unchanged since we wrote them.
 
-    ponytail: config.toml is Codex's live home config that we only reconcile
-    managed fields into, so release lets go of it without deleting it. The
-    provider-scoped profiles and catalogs are wholly ours: drop them when they
-    are already gone or still byte-identical to what we wrote. Anything that
-    has drifted since is no longer ours to delete.
+    ponytail: config.toml is released, not deleted, and its managed keys
+    (model_catalog_json, modfig-* providers) stay in place; strip them here if
+    a release ever runs against a config that still points at them.
     """
     stale_owned_hashes = dict(_artifact_hashes(ownership))
     for path, expected in _legacy_owned_hashes(ownership).items():

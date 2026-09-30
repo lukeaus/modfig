@@ -949,6 +949,13 @@ def _selected_apply_clients(
     )
 
 
+def _releases_record(route: AdapterRoute, plan: ArtifactPlan) -> bool:
+    # ponytail: only the builtin ChatGPT adapter releases (empty ownership);
+    # for any other route an empty plan stays a no-op. Add a real plan flag if
+    # a second adapter needs to release.
+    return route.adapter_id == "modfig.chatgpt" and not plan.ownership
+
+
 def _apply_transaction(
     config: str | None,
     target: str,
@@ -1133,10 +1140,7 @@ def _apply_transaction(
             else:
                 plan = adapter.plan(plan_context, proof, snapshots, ownership)
             validate_plan_against_declarations(plan, declaration, plan_context)
-            # A plan that writes nothing and owns nothing is a release or a
-            # no-op; only a plan that claims ownership without producing
-            # artifacts is a contract violation.
-            if not plan.artifacts and plan.ownership and component == "core":
+            if not plan.artifacts and component == "core" and not _releases_record(route, plan):
                 raise AppError("transaction requires at least one artifact per client component")
             _validate_external_owned_artifact(route, record, plan, snapshots)
             for artifact in plan.artifacts:
@@ -1149,14 +1153,12 @@ def _apply_transaction(
             for _client, _component, _route, _adapter, _proof, plan, snapshots, _versions in plans
             for artifact in plan.artifacts
         )
-        # ponytail: a pure ownership release (drops only, empty ownership) must
-        # commit even when the managed files are already gone, otherwise a
-        # stale manifest record can never be cleared.
+        # A release must commit even when the managed files are already gone,
+        # or the stale manifest record could never be cleared.
         releases_record = any(
-            not plan.ownership
-            and not any(isinstance(artifact.planned, bytes) for artifact in plan.artifacts)
+            _releases_record(route, plan)
             and _component_record(manifest_snapshot.manifest, client, component) is not None
-            for client, component, _route, _adapter, _proof, plan, _snapshots, _versions in plans
+            for client, component, route, _adapter, _proof, plan, _snapshots, _versions in plans
         )
         if not files_changed and not releases_record:
             return
@@ -1210,11 +1212,8 @@ def _apply_transaction(
                 if isinstance(artifact.planned, bytes)
             )
             replacement = (
-                # A plan that writes nothing and owns nothing releases its
-                # record; one that writes nothing but still claims ownership
-                # keeps the record untouched.
                 None
-                if not plan.artifacts and not plan.ownership
+                if not plan.artifacts and _releases_record(route, plan)
                 else record
                 if not plan.artifacts
                 else None
