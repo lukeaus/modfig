@@ -1133,7 +1133,10 @@ def _apply_transaction(
             else:
                 plan = adapter.plan(plan_context, proof, snapshots, ownership)
             validate_plan_against_declarations(plan, declaration, plan_context)
-            if not plan.artifacts and component == "core":
+            # A plan that writes nothing and owns nothing is a release or a
+            # no-op; only a plan that claims ownership without producing
+            # artifacts is a contract violation.
+            if not plan.artifacts and plan.ownership and component == "core":
                 raise AppError("transaction requires at least one artifact per client component")
             _validate_external_owned_artifact(route, record, plan, snapshots)
             for artifact in plan.artifacts:
@@ -1141,11 +1144,21 @@ def _apply_transaction(
                     raise AppError("planned output exceeds 16 MiB")
             plans.append((client, component, route, adapter, proof, plan, snapshots, versions))
 
-        if not any(
+        files_changed = any(
             artifact.planned != snapshots[artifact.artifact]
             for _client, _component, _route, _adapter, _proof, plan, snapshots, _versions in plans
             for artifact in plan.artifacts
-        ):
+        )
+        # ponytail: a pure ownership release (drops only, empty ownership) must
+        # commit even when the managed files are already gone, otherwise a
+        # stale manifest record can never be cleared.
+        releases_record = any(
+            not plan.ownership
+            and not any(isinstance(artifact.planned, bytes) for artifact in plan.artifacts)
+            and _component_record(manifest_snapshot.manifest, client, component) is not None
+            for client, component, _route, _adapter, _proof, plan, _snapshots, _versions in plans
+        )
+        if not files_changed and not releases_record:
             return
         artifacts: list[TransactionArtifact] = []
         affected_model_ids: list[str] = []
@@ -1197,7 +1210,12 @@ def _apply_transaction(
                 if isinstance(artifact.planned, bytes)
             )
             replacement = (
-                record
+                # A plan that writes nothing and owns nothing releases its
+                # record; one that writes nothing but still claims ownership
+                # keeps the record untouched.
+                None
+                if not plan.artifacts and not plan.ownership
+                else record
                 if not plan.artifacts
                 else None
                 if not owned_artifacts

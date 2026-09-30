@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -16,12 +17,14 @@ from modfig.adapters import (
     RuntimeProof,
 )
 from modfig.cli import main
+from modfig.clients.chatgpt import ChatGPTRuntime
 from modfig.components import ExtensionComponent
 from modfig.errors import AppError
 from modfig.manifest import (
     AdapterProvenance,
     ClientOwnership,
     ComponentOwnership,
+    OwnedArtifact,
     OwnershipManifest,
     ownership_manifest_bytes,
 )
@@ -1095,6 +1098,132 @@ def test_explicit_chatgpt_apply_fails_before_registry_side_effects(
 
     assert calls == []
     assert sorted(path.name for path in tmp_path.iterdir()) == ["modfig.yaml"]
+
+
+def _chatgpt_release_transaction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, Path, Path, Path, Path]:
+    # Registry targets factory only, so zero models emit to chatgpt.
+    config = tmp_path / "modfig.yaml"
+    _write_registry(config)
+    codex_home = tmp_path / "codex"
+    codex_home.mkdir()
+    base = codex_home / "config.toml"
+    _write_text(base, 'model = "gpt-6.1-sol"\n')
+    profile = codex_home / "surplus-gpt.config.toml"
+    catalog = codex_home / "modfig-surplus-gpt-catalog.json"
+    manifest = tmp_path / "manifest.json"
+    grant = PathGrant("chatgpt-home", "directory", codex_home, PurePosixPath("."))
+    route = app.AdapterRoute(
+        "chatgpt", "core", "modfig.chatgpt", "modfig", True, (grant,), (grant,), True
+    )
+    monkeypatch.setattr(app, "resolve_manifest_path", lambda *_: manifest)
+    monkeypatch.setattr(app, "_merged_adapter_routes", lambda **kwargs: app.AdapterRoutes((route,)))
+    proof = RuntimeProof(
+        {},
+        "",
+        provenance=ChatGPTRuntime(
+            base, codex_home, tmp_path / "codex-bin", "sha256:" + "a" * 64, "codex 1.2.3"
+        ),
+    )
+    monkeypatch.setattr(app, "_load_public_chatgpt_proof", lambda: proof)
+    return config, base, profile, catalog, manifest
+
+
+def _write_chatgpt_ownership(manifest: Path, written: Mapping[PurePosixPath, str]) -> None:
+    first_path = next(iter(written))
+    record = ComponentOwnership(
+        "core",
+        AdapterProvenance("modfig.chatgpt", "modfig"),
+        "chatgpt-home",
+        first_path,
+        None,
+        written[first_path],
+        {
+            "artifactHashes": {str(path): digest for path, digest in written.items()},
+            "artifactOrder": [str(path) for path in written],
+        },
+        tuple(
+            OwnedArtifact("chatgpt-home", path, None, digest) for path, digest in written.items()
+        ),
+    )
+    manifest.write_bytes(
+        ownership_manifest_bytes(OwnershipManifest(clients={"chatgpt": ClientOwnership((record,))}))
+    )
+    manifest.chmod(0o600)
+
+
+@POSIX_SECURE_IO
+def test_apply_chatgpt_releases_ownership_when_managed_files_are_gone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, base, profile, catalog, manifest = _chatgpt_release_transaction(tmp_path, monkeypatch)
+    # Managed artifacts were already cleaned up off disk; only the drifted
+    # Codex home config remains. Ownership must still be released.
+    before = base.read_bytes()
+    _write_chatgpt_ownership(
+        manifest,
+        {
+            PurePosixPath("surplus-gpt.config.toml"): hashlib.sha256(
+                b"name = 'Router'\n"
+            ).hexdigest(),
+            PurePosixPath("modfig-surplus-gpt-catalog.json"): hashlib.sha256(
+                b'{"models": []}\n'
+            ).hexdigest(),
+            # Deliberately not the on-disk hash: config.toml has changed hands.
+            PurePosixPath("config.toml"): "0" * 64,
+        },
+    )
+
+    app._apply_transaction(
+        str(config),
+        "chatgpt",
+        True,
+        journal_path=tmp_path / "pending.json",
+        backup_root=tmp_path / "backups",
+    )
+
+    assert base.read_bytes() == before
+    assert not profile.exists()
+    assert not catalog.exists()
+    assert "chatgpt" not in app.load_ownership_manifest(manifest).clients
+
+
+@POSIX_SECURE_IO
+def test_apply_chatgpt_releases_ownership_and_drops_owned_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, base, profile, catalog, manifest = _chatgpt_release_transaction(tmp_path, monkeypatch)
+    profile.write_bytes(b"name = 'Router'\n")
+    profile.chmod(0o600)
+    catalog.write_bytes(b'{"models": []}\n')
+    catalog.chmod(0o600)
+    before = base.read_bytes()
+    _write_chatgpt_ownership(
+        manifest,
+        {
+            PurePosixPath("surplus-gpt.config.toml"): hashlib.sha256(
+                profile.read_bytes()
+            ).hexdigest(),
+            PurePosixPath("modfig-surplus-gpt-catalog.json"): hashlib.sha256(
+                catalog.read_bytes()
+            ).hexdigest(),
+            PurePosixPath("config.toml"): hashlib.sha256(base.read_bytes()).hexdigest(),
+        },
+    )
+
+    app._apply_transaction(
+        str(config),
+        "chatgpt",
+        True,
+        journal_path=tmp_path / "pending.json",
+        backup_root=tmp_path / "backups",
+    )
+
+    assert not profile.exists()
+    assert not catalog.exists()
+    assert base.read_bytes() == before
+    assert "chatgpt" not in app.load_ownership_manifest(manifest).clients
 
 
 def test_factory_plan_context_contains_only_factory_emitted_model_dtos() -> None:

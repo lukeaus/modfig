@@ -607,6 +607,11 @@ class ChatGPTAdapter:
     ) -> ArtifactPlan:
         _validate_adapter_binding(context.logical_client, context.component)
         runtime = _chatgpt_runtime(proof)
+        if not context.models:
+            # ponytail: zero providers emit to chatgpt (subscription-native
+            # Codex). The plan is empty of writes — it drops managed artifacts
+            # and clears ownership instead of demanding a default provider.
+            return ArtifactPlan(_release_owned_artifacts(snapshots, ownership), {})
         grouped = _models_by_provider(context.models)
         default_key = _default_provider_key(context.models)
         previous = _previous_provider_fingerprints(ownership)
@@ -755,6 +760,8 @@ class ChatGPTAdapter:
         runtime = _chatgpt_runtime(proof)
         expected_hashes = _artifact_hashes(context.ownership)
         if not expected_hashes:
+            if not context.models and not any(isinstance(item, bytes) for item in written):
+                return
             raise AdapterPlanError("ChatGPT verification requires artifact ownership")
         raw_order = context.ownership.get("artifactOrder", list(expected_hashes))
         if not isinstance(raw_order, (list, tuple)) or not all(
@@ -1116,6 +1123,33 @@ def _legacy_owned_hashes(ownership: AdapterOwnership) -> dict[PurePosixPath, str
             _CHATGPT_LEGACY_CATALOG_ARTIFACT.relative_path,
         }
     }
+
+
+def _release_owned_artifacts(
+    snapshots: Mapping[ArtifactIdentity, ArtifactSnapshot],
+    ownership: AdapterOwnership,
+) -> tuple[PlannedArtifact, ...]:
+    """Drop managed artifacts when no provider emits to chatgpt.
+
+    ponytail: config.toml is Codex's live home config that we only reconcile
+    managed fields into, so release lets go of it without deleting it. The
+    provider-scoped profiles and catalogs are wholly ours: drop them when they
+    are already gone or still byte-identical to what we wrote. Anything that
+    has drifted since is no longer ours to delete.
+    """
+    stale_owned_hashes = dict(_artifact_hashes(ownership))
+    for path, expected in _legacy_owned_hashes(ownership).items():
+        stale_owned_hashes.setdefault(path, expected)
+    drops: list[PlannedArtifact] = []
+    for path, expected in sorted(stale_owned_hashes.items(), key=lambda item: str(item[0])):
+        if path == _CHATGPT_BASE_ARTIFACT.relative_path:
+            continue
+        identity = ArtifactIdentity(_CHATGPT_HOME_GRANT, path)
+        current = snapshots.get(identity, AbsentDestination())
+        if isinstance(current, bytes) and hashlib.sha256(current).hexdigest() != expected:
+            continue
+        drops.append(PlannedArtifact(identity, AbsentDestination(), "features.core.catalog", {}))
+    return tuple(drops)
 
 
 def _check_owned_or_planned_catalog(

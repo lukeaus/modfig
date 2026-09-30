@@ -1072,6 +1072,133 @@ def test_chatgpt_adapter_verify_fails_closed_on_divergence_or_shape(tmp_path: Pa
         )
 
 
+def _release_proof(codex_home: Path, config: Path, executable: Path) -> RuntimeProof:
+    return RuntimeProof(
+        {},
+        "",
+        provenance=ChatGPTRuntime(
+            config,
+            codex_home,
+            executable,
+            "sha256:" + "a" * 64,
+            "codex 1.2.3",
+        ),
+    )
+
+
+def _release_ownership(entries: Mapping[str, bytes]) -> dict[str, object]:
+    return {
+        "artifactHashes": {
+            path: hashlib.sha256(content).hexdigest() for path, content in entries.items()
+        },
+        "artifactOrder": list(entries),
+    }
+
+
+@POSIX_SECURE_IO
+def test_chatgpt_adapter_empty_models_plan_drops_owned_artifacts_and_clears_ownership(
+    tmp_path: Path,
+) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+    profile = b"name = 'Router'\n"
+    catalog = b'{"models": []}\n'
+    base = b'token = "credential-sentinel"\n'
+    proof = _release_proof(codex_home, config, executable)
+    ownership = _release_ownership(
+        {
+            "surplus-gpt.config.toml": profile,
+            "modfig-surplus-gpt-catalog.json": catalog,
+            "config.toml": base,
+        }
+    )
+    snapshots = {
+        _profile_identity("surplus-gpt"): profile,
+        ArtifactIdentity("chatgpt-home", PurePosixPath("modfig-surplus-gpt-catalog.json")): catalog,
+        _base_identity(): base,
+    }
+
+    plan = adapter.plan(AdapterPlanContext("chatgpt", "core"), proof, snapshots, ownership)
+
+    dropped = {artifact.artifact.relative_path: artifact.planned for artifact in plan.artifacts}
+    assert dropped == {
+        PurePosixPath("modfig-surplus-gpt-catalog.json"): AbsentDestination(),
+        PurePosixPath("surplus-gpt.config.toml"): AbsentDestination(),
+    }
+    assert plan.ownership == {}
+
+
+@POSIX_SECURE_IO
+def test_chatgpt_adapter_empty_models_plan_skips_drifted_artifacts(tmp_path: Path) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+    profile = b"name = 'Router'\n"
+    proof = _release_proof(codex_home, config, executable)
+    ownership = _release_ownership(
+        {
+            "surplus-gpt.config.toml": profile,
+            "modfig-surplus-gpt-catalog.json": b'{"models": []}\n',
+        }
+    )
+    snapshots = {
+        _profile_identity("surplus-gpt"): b"name = 'Edited by hand'\n",
+        ArtifactIdentity("chatgpt-home", PurePosixPath("modfig-surplus-gpt-catalog.json")): (
+            AbsentDestination()
+        ),
+    }
+
+    plan = adapter.plan(AdapterPlanContext("chatgpt", "core"), proof, snapshots, ownership)
+
+    assert [(artifact.artifact.relative_path, artifact.planned) for artifact in plan.artifacts] == [
+        (PurePosixPath("modfig-surplus-gpt-catalog.json"), AbsentDestination())
+    ]
+    assert plan.ownership == {}
+
+
+@POSIX_SECURE_IO
+def test_chatgpt_adapter_empty_models_plan_without_ownership_is_empty(tmp_path: Path) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+    proof = _release_proof(codex_home, config, executable)
+
+    plan = adapter.plan(AdapterPlanContext("chatgpt", "core"), proof, {}, {})
+
+    assert plan.artifacts == ()
+    assert plan.ownership == {}
+
+
+@POSIX_SECURE_IO
+def test_chatgpt_adapter_still_requires_exactly_one_default_provider(tmp_path: Path) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+    proof = _release_proof(codex_home, config, executable)
+    models = (
+        replace(_resolved_chatgpt_model(), chatgpt_default=True),
+        replace(_resolved_chatgpt_model(), provider_key="other", chatgpt_default=True),
+    )
+
+    with pytest.raises(
+        AdapterPlanError, match="exactly one ChatGPT provider must be marked default"
+    ):
+        adapter.plan(AdapterPlanContext("chatgpt", "core", models=models), proof, {}, {})
+
+
+@POSIX_SECURE_IO
+def test_chatgpt_adapter_verify_accepts_released_state(tmp_path: Path) -> None:
+    codex_home, config, executable = _codex_fixture(tmp_path)
+    proof = _release_proof(codex_home, config, executable)
+    context = AdapterContext("chatgpt", "core", models=(), ownership={})
+
+    adapter.verify(context, proof, (AbsentDestination(), AbsentDestination()))
+    adapter.verify(context, proof, ())
+
+    with pytest.raises(AdapterPlanError, match="artifact ownership"):
+        adapter.verify(context, proof, (b"left behind",))
+
+    with pytest.raises(AdapterPlanError, match="artifact ownership"):
+        adapter.verify(
+            AdapterContext("chatgpt", "core", models=(_resolved_chatgpt_model(),), ownership={}),
+            proof,
+            (AbsentDestination(),),
+        )
+
+
 @POSIX_SECURE_IO
 def test_chatgpt_proof_shape_treats_managed_catalog_pointer_as_owned(tmp_path: Path) -> None:
     codex_home, config, executable = _codex_fixture(tmp_path)
